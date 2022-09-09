@@ -1,0 +1,38 @@
+{% extends "socialaccount/base.html" %}
+{% block head_title %} signup with {{account.get_provider.name}} {% endblock %}
+
+{% block content %}
+<div class="py-4 text-center">
+  <h4 class="fw-bold mb-2">Sign up using {{account.get_provider.name}}</h4>
+  <p class="lead">You are about to use your <span class="text-success fw-bold">{{account.get_provider.name}}</span> account to login to {{ site.name }}. As a final step, please complete the following form:</p>
+</div>
+
+<div class="row g-5 justify-content-center">
+  <div class="col-md-7 col-lg-7">
+      <div class="modal-content">
+          <div class="modal-body p-5 pt-0">
+              <form class="signup" id="signup_form" method="post" action="{% url 'socialaccount_signup' %}">
+                {% csrf_token %}
+                <div>
+                  {% for tuple, error in form.errors.items %}
+                      <div class="alert alert-danger text-center">
+                          {{error}}
+                      </div>    
+                  {% endfor %}
+                </div>
+                {% for field in form  %}
+                  <div class="form-floating mb-3">   
+                    {{field}}
+                    <label>{{field.label}}</label>
+                  </div>
+                {% endfor %}
+                {% if redirect_field_value %}
+                <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                {% endif %}
+                <button class="w-100 mb-2 btn btn-lg rounded-4 btn-outline-primary" type="submit">Sign Up with {{account.get_provider.name}}  &raquo;</button>
+              </form>
+          </div>
+        </div>
+      </div>
+    </div>
+{% endblock %}

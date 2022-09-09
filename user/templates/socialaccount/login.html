@@ -1,0 +1,19 @@
+{% extends "socialaccount/base.html" %}
+
+
+{% block content %}
+    <div class="py-3 text-center">
+      {% if process == "connect" %}
+          <h2 class="fw-bold mb-2">Connect {{ provider.name }}</h2>
+          <p class="lead">You are about to connect a new third party account from <span class="text-primary">{{ provider.name }}</span>.</p>
+      {% else %}
+          <h2 class="fw-bold mb-2">Sign In Via {{ provider.name }}</h2>
+          <p class="lead">You are about to sign in using a third party account from <span class="text-primary">{{ provider.name }}</span>.</p>
+      {% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-primary px-5 fw-bold">Continue</button>
+      </form>
+  </div>
+  
+{% endblock %}
