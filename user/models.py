@@ -23,7 +23,7 @@ from django.db.models.signals import (
 from django_countries.fields import CountryField
 from django.core.mail import send_mail
 from django.utils.html import format_html
-from ckeditor.fields import RichTextField
+
 
 # all-auth models
 
@@ -231,7 +231,7 @@ class StaffProfile(models.Model):
         blank=True,
         help_text="Business number for communication",
     )
-    resume = RichTextField(
+    resume = models.TextField(
         max_length=1000,
         null=True,
         blank=True,

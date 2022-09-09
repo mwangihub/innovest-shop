@@ -4,15 +4,11 @@ Credits: https://github.com/justdjango/django-react-ecommerce\n
 Author: https://justdjango.com/author/matt\n
 """
 
-from django.db import models
-from django.db.models import Sum
-from django.db.models.signals import post_save
 from django.conf import settings
-from django.core.validators import MaxLengthValidator, MinLengthValidator
+from django.db import models
+from django.db.models.signals import post_save
 from django.shortcuts import reverse
-
 from django.utils.text import slugify
-
 from django_countries.fields import CountryField
 from phonenumber_field.modelfields import PhoneNumberField
 
