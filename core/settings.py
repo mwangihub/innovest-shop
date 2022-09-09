@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = env("SECRET_KEY")
 DEBUG = env('DEBUG')
-
+print(SECRET_KEY)
 DEV_MODE = False
 ALLOWED_HOSTS = env("ALLOWED_HOSTS").split(",")
 
@@ -28,7 +28,6 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "corsheaders",
-    "ckeditor",
     "django_countries",
     "phonenumber_field",
     'gmailapi_backend',
