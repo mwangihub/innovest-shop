@@ -1,12 +1,10 @@
 import environ
-
 from user.auth_config import *
 
 env = environ.Env(
     DEBUG=(bool, True)
 )
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = env("SECRET_KEY")
@@ -14,10 +12,6 @@ DEBUG = env('DEBUG')
 print(DEBUG)
 DEV_MODE = False
 ALLOWED_HOSTS = env("ALLOWED_HOSTS").split(",")
-
-# <div id="root" data-host="https://pminnovests.com" , data-check="check"></div>
-# <script defer="defer" src="{% static 'vendor/js/shop/main.a79076a4.js' %}"></script>
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -34,6 +28,7 @@ INSTALLED_APPS = [
     'user',
     'shop',
 ]
+INSTALLED_APPS += AUTH_INSTALLED_APPS
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -73,11 +68,7 @@ TEMPLATES = [
         },
     },
 ]
-# print(TEMPLATES[0]["DIRS"])
 WSGI_APPLICATION = 'core.wsgi.application'
-# Database
-# https://docs.djangoproject.com/en/4.0/ref/settings/#databases
-# if not DEBUG:
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -103,39 +94,30 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator', },
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator', },
 ]
-# Internationalization
-# https://docs.djangoproject.com/en/4.0/topics/i18n/
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.0/howto/static-files/
+
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'web/static'), ]
 # if DEBUG:
 #     STATICFILES_DIRS += [BASE_DIR / "web/shop/build"]
-
 STATIC_URL = "static/"
 MEDIA_URL = "media/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 MEDIA_ROOT = BASE_DIR / "media"
 
-INSTALLED_APPS += AUTH_INSTALLED_APPS
 MIDDLEWARE += CORS_MIDDLEWARE
 TEMPLATES[0]["OPTIONS"]["context_processors"] += CONTEXT_PROCESSORS
 STATICFILES_DIRS += AUTH_STATIC
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOWED_ORIGINS = ["http://localhost:3000", ]
-
 CORS_ORIGIN_ALLOW_ALL = False
-
 EMAIL_BACKEND = 'gmailapi_backend.mail.GmailBackend'
 GMAIL_API_CLIENT_ID = env("GMAIL_CLIENT_ID")
 GMAIL_API_CLIENT_SECRET = env("GMAIL_CLIENT_SECRET")
 GMAIL_API_REFRESH_TOKEN = env("GMAIL_REFRESH_TOKEN")
 ALLOWED_EMAIL = ['wingdevelop@gmail.com', 'demo.mail.wing@gmail.com']
-# os.environ.get("ALLOWED_EMAIL").split(',')
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
 ]
