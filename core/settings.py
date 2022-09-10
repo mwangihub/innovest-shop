@@ -77,24 +77,24 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
-if DEBUG:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
+# if not DEBUG:
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
-if not DEBUG:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            "NAME": "shop",
-            "USER": "innovest",
-            "PASSWORD": "c3+%Cg@Ej$DW*_1sb",
-            "HOST": "localhost",
-            "PORT": '',
-        }
-    }
+}
+if not DEBUG: pass
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
+#         "NAME": "shop",
+#         "USER": "innovest",
+#         "PASSWORD": "c3+%Cg@Ej$DW*_1sb",
+#         "HOST": "localhost",
+#         "PORT": '',
+#     }
+# }
 # Password validation
 # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
@@ -111,25 +111,24 @@ USE_I18N = True
 USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
-STATICFILES_DIRS = [BASE_DIR, "web/static", ]
-if DEBUG:
-    STATICFILES_DIRS += [BASE_DIR / "web/shop/build"]
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'web/static'), ]
+# if DEBUG:
+#     STATICFILES_DIRS += [BASE_DIR / "web/shop/build"]
 
-STATIC_URL = "/static/"
-MEDIA_URL = "/media/"
-STATIC_ROOT = BASE_DIR / "static"
+STATIC_URL = "static/"
+MEDIA_URL = "media/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 MEDIA_ROOT = BASE_DIR / "media"
-# EXTRA
+
 INSTALLED_APPS += AUTH_INSTALLED_APPS
 MIDDLEWARE += CORS_MIDDLEWARE
 TEMPLATES[0]["OPTIONS"]["context_processors"] += CONTEXT_PROCESSORS
 STATICFILES_DIRS += AUTH_STATIC
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
 CORS_ALLOWED_ORIGINS = ["http://localhost:3000", ]
 
-CORS_ORIGIN_ALLOW_ALL = DEBUG
+CORS_ORIGIN_ALLOW_ALL = False
 
 EMAIL_BACKEND = 'gmailapi_backend.mail.GmailBackend'
 GMAIL_API_CLIENT_ID = env("GMAIL_CLIENT_ID")
