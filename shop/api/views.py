@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 
 from shop.models import *
 from . import serializers as s
+from core.methods import _user
 
 
 def create_ref_code():
@@ -23,12 +24,6 @@ def create_ref_code():
 
 
 User = get_user_model()
-
-
-def _user(request=None):
-    if not settings.DEV_MODE:
-        return request.user
-    return User.objects.get(email="pmwassini@gmail.com")
 
 
 def get_item_in_order(slug, request):
@@ -123,7 +118,7 @@ class ItemsAPIView(APIView):
 
 
 # REQUIRE AUTHENTICATION
-@method_decorator(csrf_protect, name="dispatch")
+# @method_decorator(csrf_protect, name="dispatch")
 class AddToCartAPIView(APIView):
     permission_classes = [permissions.AllowAny]
     order_serializer = s.OrderSerializer
@@ -144,6 +139,8 @@ class AddToCartAPIView(APIView):
         order_qs = Order.objects.filter(user=user, ordered=False)
         if order_qs.exists():
             order = order_qs[0]
+            item.stock -= 1
+            item.save()
             if order.items.filter(item__slug=item.slug).exists():
                 order_item.quantity += 1
                 order_item.save()
@@ -162,6 +159,8 @@ class AddToCartAPIView(APIView):
             ordered_date = timezone.now()
             order = Order.objects.create(user=user, ordered_date=ordered_date, ref_code=create_ref_code())
             order.items.add(order_item)
+            item.stock -= 1
+            item.save()
             return Response(
                 {
                     "details": f"{item.title} added to your cart",
@@ -173,7 +172,7 @@ class AddToCartAPIView(APIView):
             )
 
 
-@method_decorator(csrf_protect, name="dispatch")
+# @method_decorator(csrf_protect, name="dispatch")
 class DeleteItemFromCartView(APIView):
     """
     - Api that provide functionality to delete item from the cart
@@ -198,6 +197,8 @@ class DeleteItemFromCartView(APIView):
                 except MultipleObjectsReturned:
                     order_item = CartItem.objects.filter(item=item)[0]
                 order.items.remove(order_item)
+                item.stock += order_item.quantity
+                item.save()
                 order_item.delete()
                 # check if order has items if no delete the order
                 order_response = None
@@ -233,7 +234,7 @@ class DeleteItemFromCartView(APIView):
             )
 
 
-@method_decorator(csrf_protect, name="dispatch")
+# @method_decorator(csrf_protect, name="dispatch")
 class ReduceItemFromCartView(APIView):
     """
     - Api that provide functionality to reduce item from the cart by 1
@@ -244,10 +245,9 @@ class ReduceItemFromCartView(APIView):
     def post(self, request, format=None, *args, **kwargs):
         slug = request.data.get("slug", None)
         user = _user(request)
+        response_obj = {}
         if slug is None:
-            return Response(
-                {"details": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"details": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
         item = get_object_or_404(Item, slug=slug)
         order_qs = Order.objects.filter(user=user, ordered=False)
         if order_qs.exists():
@@ -258,54 +258,39 @@ class ReduceItemFromCartView(APIView):
                 )[0]
                 if order_item.quantity > 1:
                     order_item.quantity -= 1
+                    item.stock += 1
+                    item.save()
                     order_item.save()
-                    return Response(
-                        {
-                            "details": "Item quantity updated.",
-                            "item": s.ItemSerializer(item).data,
-                            "order": s.OrderSerializer(order, context={"request": request}).data,
-                        },
-                        status=status.HTTP_200_OK,
-                    )
+                    response_obj["details"] = "Item quantity updated."
+                    response_obj["item"] = s.ItemSerializer(item).data
+                    response_obj["order"] = s.OrderSerializer(order, context={"request": request}).data
+                    return Response(response_obj, status=status.HTTP_200_OK)
                 else:
-                    # If we delete an item, still order exists.
-                    # We need to know what happens when order_item is deleted
-                    #   - If it still have the item in it? Answer is Yes. hence order.order_item.remove()
-                    #   - Remember CartItems is different from Order
+                    item.stock += order_item.quantity
+                    item.save()
                     order_item.delete()
-                    order_data = s.OrderSerializer(order, context={"request": request}).data
-                    if not order.items.all().count():
-                        order_data = None
-                    return Response(
-                        {
-                            "details": "Your cart is empty",
-                            "item": {},
-                            "order": order_data
-                        },
-                        status=status.HTTP_200_OK,
-                    )
+                    response_obj["order"] = s.OrderSerializer(order, context={"request": request}).data
+                    response_obj["item"] = {}
+                    response_obj["details"] = "Item removed from cart"
+                    if not order.items.count() > 0:
+                        order.delete()
+                        response_obj["details"] = "Your cart is empty"
+                        response_obj["order"] = None
+                    return Response(response_obj, status=status.HTTP_200_OK)
 
             else:
-                return Response(
-                    {
-                        "details": "This item is not in your cart",
-                        "item": s.ItemSerializer(item).data,
-                        "order": s.OrderSerializer(order, context={"request": request}).data,
-                    },
-                    status=status.HTTP_200_OK,
-                )
+                response_obj["order"] = s.OrderSerializer(order, context={"request": request}).data
+                response_obj["item"] = s.ItemSerializer(item).data
+                response_obj["details"] = "This item is not in your cart"
+                return Response(response_obj, status=status.HTTP_200_OK)
         else:
-            return Response(
-                {
-                    "details": "You do not have an active order",
-                    "item": s.ItemSerializer(item).data,
-                    "order": None,
-                },
-                status=status.HTTP_200_OK,
-            )
+            response_obj["order"] = None
+            response_obj["item"] = s.ItemSerializer(item).data
+            response_obj["details"] = "You do not have an active order"
+            return Response(response_obj, status=status.HTTP_200_OK)
 
 
-@method_decorator(csrf_protect, name="dispatch")
+# @method_decorator(csrf_protect, name="dispatch")
 class AddItemToCartView(APIView):
     """
     - Api that provide functionality to add item to cart
@@ -329,6 +314,8 @@ class AddItemToCartView(APIView):
                     item=item, user=user, ordered=False
                 )[0]
                 order_item.quantity += 1
+                item.stock -= 1
+                item.save()
                 order_item.save()
                 return Response(
                     {
@@ -358,26 +345,20 @@ class AddItemToCartView(APIView):
             )
 
 
-@method_decorator(csrf_protect, name="dispatch")
-class OrderDetailView(generics.RetrieveAPIView):
-    """
-    - Api that provide details of the order item which was not placed. i.e ordered=False
-    - User must be authenticated
-    """
+class OrderDetailView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = s.OrderSerializer
-    queryset = Order.objects.all()
 
-    def get_object(self):
+    def get(self, *args, **kwargs):
         user = _user(self.request)
         try:
             order = Order.objects.get(user=user, ordered=False)
-            return order
         except MultipleObjectsReturned:
             order = Order.objects.filter(user=user, ordered=False)[0]
-            return order
         except ObjectDoesNotExist:
-            return None
+            order = None
+            return Response(None, status=status.HTTP_200_OK)
+        return Response(self.serializer_class(order, many=False).data, status=status.HTTP_200_OK)
 
 
 class CompletedOrderView(generics.ListAPIView):
@@ -386,14 +367,14 @@ class CompletedOrderView(generics.ListAPIView):
 
     def get_queryset(self):
         user = _user(self.request)
-        order = Order.objects.completed_by_user(user)
+        order = Order.objects.all()
         return order
 
 
 @method_decorator(csrf_protect, name="dispatch")
 class AddCouponView(APIView):
     """
-    - Api that adds a coupon to the the order and reduces the amount charged with the value of the coupon
+    - Api that adds a coupon to the  order and reduces the amount charged with the value of the coupon
     - User must be authenticated
     """
     permission_classes = [permissions.AllowAny, ]
@@ -505,6 +486,70 @@ class CreateAddressView(APIView):
         return self.create_address(request)
 
 
+# @method_decorator(csrf_protect, name="dispatch")
+class CrudShippingAddrView(APIView):
+    permission_classes = [permissions.AllowAny, ]
+
+    def get_address(self, *args, **kwargs):
+        user = _user(self.request)
+        try:
+            address = Address.objects.by_user(user)
+        except ObjectDoesNotExist:
+            address = None
+        return address
+
+    def post(self, *args, **kwargs):
+        data = self.request.data
+        address = None
+        update = data.get("update", None)
+        to_update = data.get("to_update", None)
+        delete = data.get("delete", None)
+        address_id = data.get("id", None)
+        if address_id:
+            address = Address.objects.get(id=data['id'])
+        create = data.get("create", None)
+        if update:
+            for add in self.get_address().all():
+                if add is address:
+                    continue
+                else:
+                    add._default = False
+                    add.save()
+            serializer = s.AddressSerializer(instance=address, data=data, many=False, partial=True, context={'request': self.request})
+            if serializer.is_valid():
+                serializer.save()
+                serialized_addrs = s.AddressSerializer(self.get_address(), many=True)
+                response_obj = {
+                    'default': True,
+                    "update_success": "Address has been updated.",
+                    "address": serialized_addrs.data
+                }
+                if not to_update:
+                    response_obj['default'] = True
+                return Response(response_obj, status=status.HTTP_200_OK)
+        if delete:
+            address.delete()
+            serialized_addrs = s.AddressSerializer(self.get_address(), many=True)
+            return Response({
+                "delete": True,
+                "update_success": "Address deleted.",
+                "address": serialized_addrs.data
+            }, status=status.HTTP_200_OK)
+        if create:
+            serializer = s.AddressSerializer(initial={'country': 'KE'}, data=data, many=False, context={'request': self.request})
+            if serializer.is_valid():
+                serializer.save()
+                serialized_addrs = s.AddressSerializer(self.get_address(), many=True)
+                return Response({
+                    "create": True,
+                    "update_success": "Address created.",
+                    "address": serialized_addrs.data
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({"create_error": serializer.errors}, status=status.HTTP_200_OK)
+        return Response({}, status=status.HTTP_200_OK)
+
+
 class MpesaPay(APIView):
     permission_classes = [permissions.AllowAny, ]
 
@@ -520,7 +565,7 @@ class MpesaPay(APIView):
                 "order": None,
                 'details': "Order payment was done"
             }, status=status.HTTP_400_BAD_REQUEST)
-        total = order.get_total()
+        total = order.get_total
         if amount != total:
             return Response({
                 "order": s.OrderSerializer(order, context={"request": request}).data,

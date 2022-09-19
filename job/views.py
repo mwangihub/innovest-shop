@@ -1,13 +1,12 @@
 from django.shortcuts import render, redirect
 from django.views.generic import TemplateView
 from django.http import HttpResponse
-
-# Create your views here.
 from core.methods import app_active_check
 
 
-class ShopTemplateView(TemplateView):
-    template_name = 'shop/index.html'
+# Create your views here.
+class JobTemplateView(TemplateView):
+    template_name = 'job/index.html'
     app_name = None
 
     def get(self, request, *args, **kwargs) -> HttpResponse:
@@ -17,7 +16,8 @@ class ShopTemplateView(TemplateView):
             return redirect("/")
         domain = f"{request.scheme}://{request.get_host()}/"
         context = {
-            'title': "welcome to Innovest shop",
+            'title': "Innovest Job site | Job site sample",
             'domain': domain
         }
+
         return render(request, self.template_name, context)

@@ -1,19 +1,27 @@
-
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from shop.views import ShopTemplateView
 
+import core.UrlsViewSiteMap
+import shop.sitemaps
+from shop.views import ShopTemplateView
+from job.views import JobTemplateView
+from home.views import HomeTemplateView
 from django.urls import path, include
 from django.views.generic.base import RedirectView
-
 from django.contrib.staticfiles.storage import staticfiles_storage
+from django.contrib.sitemaps.views import sitemap
 
-favicon_view = RedirectView.as_view(url=staticfiles_storage.url('favicons/dev_1.jpg'))
+sitemaps = {
+    "static": core.UrlsViewSiteMap.StaticViewSitemap,
+}
+
 urlpatterns = [
+    path("sitemap.xml", sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
     path("auth/", include("user.urls")),
-    path("", ShopTemplateView.as_view(), name="shop"),
-    path('favicon.ico', favicon_view),
+    path("shop/", ShopTemplateView.as_view(), name="shop"),
+    path("job/", JobTemplateView.as_view(), name="job"),
+    path("", HomeTemplateView.as_view(), name="home"),
     # For API_ENDPOINTS
     path('api/', include([
         path('auth/', include([
@@ -27,10 +35,13 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += [
-        path('favicon.ico', favicon_view),
+        path('favicon.ico', RedirectView.as_view(url=staticfiles_storage.url('favicons/dev_1.jpg'))),
         path("admin/", admin.site.urls),
     ]
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 else:
-    urlpatterns += [path("db/", admin.site.urls), ]
+    urlpatterns += [
+        path("management/admin/", admin.site.urls),
+        path('favicon.ico', RedirectView.as_view(url=staticfiles_storage.url('favicons/favicon.ico'))),
+    ]

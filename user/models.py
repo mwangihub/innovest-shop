@@ -24,8 +24,9 @@ from django_countries.fields import CountryField
 from django.core.mail import send_mail
 from django.utils.html import format_html
 
-
 # all-auth models
+from phonenumber_field.modelfields import PhoneNumberField
+from datetime import date
 
 
 class UserManager(BaseUserManager):
@@ -60,41 +61,24 @@ class UserManager(BaseUserManager):
     def staff_user(self):
         return self.get_queryset().filter(staff=True)
 
-
     def employee_user(self):
         return self.get_queryset().filter(employee=True)
-    
+
     def get_user_by_id(self, user_id):
-        return self.get_queryset().get(id=user_id) 
-    
+        return self.get_queryset().get(id=user_id)
+
     def get_user_by_email(self, email):
         return self.get_queryset().get(email=email)
+
 
 class User(AbstractBaseUser):
     # ISSUE: For the purpose of dj_rest_auth which needs username field
     username = models.CharField(max_length=50, blank=True, null=True)
-    email = models.EmailField(
-        verbose_name="email address",
-        max_length=255,
-        unique=True,
-        blank=False,
-        null=False,
-    )
-    first_name = models.CharField(
-        max_length=100,
-        verbose_name="First name",
-        blank=True,
-        null=True,
-    )
-    last_name = models.CharField(
-        max_length=100,
-        verbose_name="Second name",
-        blank=True,
-        null=True,
-    )
+    email = models.EmailField(verbose_name="email address", max_length=255, unique=True, blank=False, null=False, )
+    first_name = models.CharField(max_length=100, verbose_name="First name", blank=True, null=True, )
+    last_name = models.CharField(max_length=100, verbose_name="Second name", blank=True, null=True, )
     is_active = models.BooleanField(default=False)
-    is_staff = models.BooleanField(
-        default=False)  # a admin user; non super-user
+    is_staff = models.BooleanField(default=False)  # an admin user; non super-user
     is_admin = models.BooleanField(default=False)  # a superuser
     buyer = models.BooleanField(default=False)
     employee = models.BooleanField(default=False)
@@ -125,7 +109,6 @@ class User(AbstractBaseUser):
 
     @property
     def get_innitials(self):
-
         def __innitial(param):
             name_list = param.split()
             new = ""
@@ -165,30 +148,12 @@ class GenderChoice(models.TextChoices):
 
 class EmployeeProfile(models.Model):
     GENDER = GenderChoice.choices
-    user = models.OneToOneField(User,
-                                related_name="employee_profile",
-                                on_delete=models.CASCADE)
-
-    avatar = models.ImageField(upload_to="media/profiles/employees/avatars/",
-                               null=True,
-                               blank=True)
-    gender = models.CharField(choices=GenderChoice.choices,
-                              max_length=1,
-                              default=GenderChoice.SELECT)
+    user = models.OneToOneField(User, related_name="employee_profile", on_delete=models.CASCADE)
+    avatar = models.ImageField(upload_to="media/profiles/employees/avatars/", null=True, blank=True)
+    gender = models.CharField(choices=GenderChoice.choices, max_length=1, default=GenderChoice.SELECT)
     phone = models.CharField(max_length=32, null=True, blank=True)
-    address = models.CharField(
-        max_length=50,
-        null=True,
-        blank=True,
-        help_text="Include your city or your area.",
-    )
-    resume = models.FileField(
-        upload_to="media/profiles/employees/resumes",
-        null=True,
-        blank=True,
-        help_text="Attach your resume most prefferably in word formart.",
-    )
-
+    address = models.CharField(max_length=50, null=True, blank=True, help_text="Include your city or your area.", )
+    resume = models.FileField(upload_to="media/profiles/employees/resumes", null=True, blank=True, help_text="Attach your resume most preferably in word format.", )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -202,41 +167,35 @@ class EmployeeProfile(models.Model):
         )  # if self.avatar else static('assets/img/team/default-profile-picture.png')
 
 
+class BuyerProfile(models.Model):
+    GENDER = GenderChoice.choices
+    user = models.OneToOneField(User, related_name="buyer_profile", on_delete=models.CASCADE)
+    avatar = models.ImageField(upload_to="media/profiles/buyer/avatars/", null=True, blank=True)
+    gender = models.CharField(choices=GenderChoice.choices, max_length=1, default=GenderChoice.SELECT)
+    phone = PhoneNumberField(null=True, blank=True)
+    address = models.CharField(max_length=50, null=True, blank=True, help_text="Include your city or your area.", )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.user.email
+
+    @property
+    def get_avatar(self):
+        return (
+            self.avatar.url  # if self.avatar else static('assets/img/team/default-profile-picture.png')
+        )
+
+
 class StaffProfile(models.Model):
     GENDER = GenderChoice.choices
-    user = models.OneToOneField(User,
-                                related_name="staff_profile",
-                                on_delete=models.CASCADE)
-    first_name = models.CharField(
-        max_length=100,
-        verbose_name="First name",
-        blank=True,
-        null=True,
-    )
-    last_name = models.CharField(
-        max_length=100,
-        verbose_name="Second name",
-        blank=True,
-        null=True,
-    )
-    avatar = models.ImageField(upload_to="media/profiles/staff/avatars/",
-                               null=True,
-                               blank=True)
-    gender = models.CharField(choices=GenderChoice.choices,
-                              max_length=1,
-                              default=GenderChoice.SELECT)
-    phone = models.CharField(
-        max_length=32,
-        null=True,
-        blank=True,
-        help_text="Business number for communication",
-    )
-    resume = models.TextField(
-        max_length=1000,
-        null=True,
-        blank=True,
-        help_text="Use 1000 words only. To be pulished in the website.",
-    )
+    user = models.OneToOneField(User, related_name="staff_profile", on_delete=models.CASCADE)
+    first_name = models.CharField(max_length=100, verbose_name="First name", blank=True, null=True, )
+    last_name = models.CharField(max_length=100, verbose_name="Second name", blank=True, null=True, )
+    avatar = models.ImageField(upload_to="media/profiles/staff/avatars/", null=True, blank=True)
+    gender = models.CharField(choices=GenderChoice.choices, max_length=1, default=GenderChoice.SELECT)
+    phone = models.CharField(max_length=32, null=True, blank=True, help_text="Business number for communication", )
+    resume = models.TextField(max_length=1000, null=True, blank=True, help_text="Use 1000 words only. To be published in the website.", )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -251,22 +210,13 @@ class StaffProfile(models.Model):
 
 
 class InnovestUsersMessages(models.Model):
-    session_user = models.CharField(null=True, blank=True, max_length=100)
-    names = models.CharField(
-        max_length=100,
-        verbose_name="client name",
-        blank=True,
-        null=True,
-    )
+    session_user = models.CharField(null=True, blank=True, max_length=1000)
+    names = models.CharField(max_length=100, verbose_name="client name", blank=False, null=False, default="Default")
     email = models.EmailField(max_length=225)
-    # phone = models.CharField(max_length=32, null=True, blank=True, help_text="Optional but more convenient")
-    message = models.CharField(max_length=1000,
-                               default="Innovest Message",
-                               null=True,
-                               blank=True)
-    inform_us = models.CharField(
-        max_length=1000, help_text="Ask question, Inform us on anything.")
+    subject = models.CharField(max_length=250, null=False, blank=False, help_text="Optional but more convenient", default="Default")
+    message = models.TextField(max_length=1000, default="Innovest Message", null=False, blank=False, )
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_on = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.email
@@ -281,16 +231,9 @@ class SubscriberManager(models.Manager):
         return self.get_queryset().filter(active=False)
 
 
-class InnovestSubcribers(models.Model):
-    email = models.EmailField(
-        max_length=100,
-        verbose_name="Subscriber email",
-        help_text="We will be sending you new jobs",
-    )
-    subscribe = models.CharField(max_length=1000,
-                                 default="Innovest subscriber",
-                                 null=True,
-                                 blank=True)
+class InnovestSubscribers(models.Model):
+    email = models.EmailField(max_length=100, verbose_name="Subscriber email", help_text="We will be sending you new jobs", )
+    subscribe = models.CharField(max_length=1000, default="Innovest subscriber", null=True, blank=True)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -308,15 +251,25 @@ class AccentChoices(models.TextChoices):
 
 class Theme(models.Model):
     ACCENT = AccentChoices.choices
-    session = models.CharField(_("current sesion"),
-                               max_length=50,
-                               default="",
-                               blank=True,
-                               null=True)
+    session = models.CharField(_("current session"), max_length=50, default="", blank=True, null=True)
     light = models.BooleanField(default=True)
-    accent = models.CharField(choices=AccentChoices.choices,
-                              max_length=1,
-                              default=AccentChoices.GREEN)
+    accent = models.CharField(choices=AccentChoices.choices, max_length=1, default=AccentChoices.GREEN)
 
     def __str__(self):
         return self.session
+
+
+class Project(models.Model):
+    project_name = models.CharField(max_length=200, blank=True, null=True)
+    category = models.CharField(max_length=200, blank=True, null=True)
+    client = models.CharField(max_length=200, blank=True, null=True)
+    project_url = models.CharField(max_length=200, blank=True, null=True)
+    alias_name = models.CharField(max_length=200, blank=True, null=True)
+    mentioned_date = models.DateField(default=date.today)
+
+    display = models.BooleanField(default=False)
+    start_date = models.DateTimeField(auto_now_add=True)
+    updated_date = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.project_name

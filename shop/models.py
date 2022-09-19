@@ -76,7 +76,7 @@ class Item(models.Model):
         super(Item, self).save(*args, **kwargs)
 
     def get_absolute_url(self):
-        return reverse("core:product", kwargs={"slug": self.slug})
+        return reverse("shop")
 
     def get_remove_from_cart_url(self):
         return reverse("remove-from-cart", kwargs={"slug": self.slug})
@@ -148,35 +148,20 @@ class Order(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     ref_code = models.CharField(max_length=20, blank=False, null=False)
     items = models.ManyToManyField(CartItem, related_name="cart_items")
-    start_date = models.DateTimeField(auto_now=True)
+    start_date = models.DateTimeField(auto_now_add=True)
     ordered_date = models.DateTimeField(auto_now=True)
     pay_date = models.DateTimeField(auto_now_add=True)
     ordered = models.BooleanField(default=False)
-    shipping_address = models.ForeignKey(
-        "Address",
-        related_name="shipping_address",
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
-    )
-    billing_address = models.ForeignKey(
-        "Address",
-        related_name="billing_address",
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
-    )
-    payment = models.ForeignKey(
-        "Payment", on_delete=models.SET_NULL, blank=True, null=True
-    )
-    coupon = models.ForeignKey(
-        "Coupon", on_delete=models.SET_NULL, blank=True, null=True
-    )
+    shipping_address = models.ForeignKey("Address", related_name="shipping_address", on_delete=models.SET_NULL, blank=True, null=True, )
+    billing_address = models.ForeignKey("Address", related_name="billing_address", on_delete=models.SET_NULL, blank=True, null=True, )
+    payment = models.ForeignKey("Payment", on_delete=models.SET_NULL, blank=True, null=True)
+    coupon = models.ForeignKey("Coupon", on_delete=models.SET_NULL, blank=True, null=True)
     being_delivered = models.BooleanField(default=False)
     received = models.BooleanField(default=False)
     refund_requested = models.BooleanField(default=False)
     refund_granted = models.BooleanField(default=False)
-    objects = OrderManager()
+
+    # objects = OrderManager()
 
     class Meta:
         ordering = ["-ordered_date"]
@@ -184,6 +169,7 @@ class Order(models.Model):
     def __str__(self):
         return self.user.email
 
+    @property
     def get_total(self):
         total = 0
         for order_item in self.items.all():
@@ -192,12 +178,26 @@ class Order(models.Model):
             total -= self.coupon.amount
         return total
 
+    @property
     def get_total_discount(self):
         discount = 0
         for order_item in self.items.all():
             if order_item.item.discounted_price:
                 discount += order_item.get_amount_saved()
         return round(discount, 2)
+
+
+class AddressQuerySet(models.QuerySet):
+    def by_user(self, user):
+        return self.filter(user=user)
+
+
+class AddressManager(models.Manager):
+    def get_queryset(self):
+        return AddressQuerySet(self.model, using=self._db)
+
+    def by_user(self, user):
+        return self.get_queryset().by_user(user)
 
 
 class Address(models.Model):
@@ -209,19 +209,14 @@ class Address(models.Model):
     last_name = models.CharField(max_length=100, verbose_name="Second name", blank=True, null=True, )
     address = models.CharField(max_length=100, blank=True, null=True, )
     state = models.CharField(max_length=100, blank=True, null=True, )
-    country = CountryField(multiple=False, blank=True, null=True)
+    country = CountryField(multiple=False, blank=True, null=True, default="KE")
     phone = PhoneNumberField(null=True, blank=True)
-    saveinfo = models.BooleanField(default=False)
+    _default = models.BooleanField(default=False)
+
+    objects = AddressManager()
 
     def __str__(self):
-        """
-        The __str__ function is called when an instance of the class is printed.
-        It returns a string representation of the object, which can be used for debugging and logging.
-        :param self: Refer to the object itself
-        :return: The string representation of the object
-        :doc-author: Trelent
-        """
-        return "self.user.email"
+        return f"{self.user.email}"
 
     class Meta:
         verbose_name_plural = "Shipping addresses"

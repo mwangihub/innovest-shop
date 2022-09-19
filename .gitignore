@@ -2,7 +2,10 @@
 
 # LOCAL PROJECTS
 web/shop
-
+web/home
+shop/migrations/*
+user/migrations/*
+media
 # REACT
 ## dependencies
 node_modules

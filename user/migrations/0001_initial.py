@@ -8,7 +8,6 @@ import user.models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -40,7 +39,7 @@ class Migration(migrations.Migration):
             ],
         ),
         migrations.CreateModel(
-            name='InnovestSubcribers',
+            name='InnovestSubscribers',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('email', models.EmailField(help_text='We will be sending you new jobs', max_length=100, verbose_name='Subscriber email')),

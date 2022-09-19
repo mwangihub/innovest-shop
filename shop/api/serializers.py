@@ -1,10 +1,3 @@
-
-from django.conf import settings
-
-from email.mime import image
-from pyexpat import model
-from tokenize import maybe
-
 from rest_framework import serializers
 from shop.models import *
 
@@ -21,31 +14,13 @@ def _user(request=None):
     return User.objects.get(email="pmwassini@gmail.com")
 
 
-# class ItemSampleSerializer(serializers.ModelSerializer):
-#
-#     class Meta:
-#         model = ItemSample
-#         fields = "__all__"
-
-
 class AddressSerializer(CountryFieldMixin, serializers.ModelSerializer):
     country = CountryField()
     country_full = serializers.SerializerMethodField()
 
     class Meta:
         model = Address
-        fields = (
-            "id",
-            "user",
-            "address",
-            "state",
-            "country",
-            "country_full",
-            "phone",
-            "saveinfo",
-            "first_name",
-            "last_name",
-        )
+        fields = ("id", "user", "address", "state", "country", "country_full", "phone", "first_name", "last_name", "_default")
 
     def get_country_full(self, address):
         return address.country.name
@@ -77,22 +52,7 @@ class ItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Item
-        fields = (
-            "id",
-            "title",
-            "price",
-            "discounted_price",
-            "category",
-            "label",
-            "slug",
-            "description",
-            "image",
-            "stock",
-            "rating_count",
-            "rates",
-            "reviews",
-            "cart_count",
-        )
+        fields = ("id", "title", "price", "discounted_price", "category", "label", "slug", "description", "image", "stock", "rating_count", "rates", "reviews", "cart_count",)
 
     def get_label(self, obj):
         return obj.get_label_display()
@@ -108,7 +68,6 @@ class ItemSerializer(serializers.ModelSerializer):
     def get_category(self, obj):
         # return obj.get_category_display()
         return obj.category
-
 
     def get_cart_count(self, obj):
         item_in_cart = obj.in_cart.all().filter(item=obj, ordered=False)
@@ -165,7 +124,8 @@ class PaymentSerializer(serializers.ModelSerializer):
 # "start_date","ordered_date","ordered","shipping_address","billing_address",
 # "payment","coupon","being_delivered","received","refund_requested","refund_granted","ref_code",
 class OrderSerializer(serializers.ModelSerializer):
-    cart_items = serializers.SerializerMethodField()
+    # cart_items = serializers.SerializerMethodField()
+    items = CartItemSerializer(read_only=False, many=True)
     order_total = serializers.SerializerMethodField()
     total_discount = serializers.SerializerMethodField()
     coupon = serializers.SerializerMethodField()
@@ -178,7 +138,7 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = (
             "id",
-            "cart_items",
+            "items",
             "order_total",
             "total_discount",
             "coupon",
@@ -187,9 +147,11 @@ class OrderSerializer(serializers.ModelSerializer):
             "ref_code",
             "ordered",
             "start_date",
-            "ordered"
-
-        )
+            "ordered",
+            'being_delivered',
+            "refund_requested",
+            "refund_granted",
+            'received')
 
     def get_ordered(self, obj):
         return obj.ordered
@@ -198,13 +160,13 @@ class OrderSerializer(serializers.ModelSerializer):
         return obj.ref_code
 
     def get_cart_items(self, obj):
-        return CartItemSerializer(obj.items.all(), many=True).data
+        return CartItemSerializer(obj.cart_items.all(), many=True).data
 
     def get_order_total(self, obj):
-        return obj.get_total()
+        return obj.get_total
 
     def get_total_discount(self, obj):
-        return obj.get_total_discount()
+        return obj.get_total_discount
 
     def get_coupon(self, obj):
         return CouponSerializer(obj.coupon, many=False).data

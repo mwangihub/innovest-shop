@@ -9,14 +9,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = env("SECRET_KEY")
 DEBUG = env('DEBUG')
-print(DEBUG)
-DEV_MODE = False
+
+DEV_MODE = True
 ALLOWED_HOSTS = env("ALLOWED_HOSTS").split(",")
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
+    'django.contrib.sitemaps',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     "rest_framework",
@@ -27,6 +28,7 @@ INSTALLED_APPS = [
     'gmailapi_backend',
     'user',
     'shop',
+    'job'
 ]
 INSTALLED_APPS += AUTH_INSTALLED_APPS
 
@@ -76,18 +78,7 @@ DATABASES = {
     }
 }
 if not DEBUG: pass
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-#         "NAME": "shop",
-#         "USER": "innovest",
-#         "PASSWORD": "c3+%Cg@Ej$DW*_1sb",
-#         "HOST": "localhost",
-#         "PORT": '',
-#     }
-# }
-# Password validation
-# https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator', },
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', },
@@ -111,12 +102,14 @@ MIDDLEWARE += CORS_MIDDLEWARE
 TEMPLATES[0]["OPTIONS"]["context_processors"] += CONTEXT_PROCESSORS
 STATICFILES_DIRS += AUTH_STATIC
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-CORS_ALLOWED_ORIGINS = ["http://localhost:3000", ]
-CORS_ORIGIN_ALLOW_ALL = False
-EMAIL_BACKEND = 'gmailapi_backend.mail.GmailBackend'
-GMAIL_API_CLIENT_ID = env("GMAIL_CLIENT_ID")
-GMAIL_API_CLIENT_SECRET = env("GMAIL_CLIENT_SECRET")
-GMAIL_API_REFRESH_TOKEN = env("GMAIL_REFRESH_TOKEN")
+
+EMAIL_HOST_USER = "pmwassini@gmail.com"
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_PORT = 587
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
+EMAIL_USE_TLS = True
 ALLOWED_EMAIL = ['wingdevelop@gmail.com', 'demo.mail.wing@gmail.com']
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
@@ -135,3 +128,19 @@ REST_SESSION_LOGIN = True
 
 # If you're in production, you should serve your website over HTTPS and enable CSRF_COOKIE_SECURE and
 # SESSION_COOKIE_SECURE, which will only allow the cookies to be sent over HTTPS.
+CORS_ALLOWED_ORIGINS = ["http://localhost:3000", ]
+CORS_ORIGIN_ALLOW_ALL = False
+# CORS_ALLOW_HEADERS = ('Access-Control-Allow-Origin',
+#                       'Access-Control-Allow-Credentials',
+#                       'Authorization', 'Content-Type',
+#                       'Cache-Control',
+#                       'X-Requested-With',
+#                       'x-csrftoken')
+# CORS_ALLOW_CREDENTIALS = True
+# CSRF_COOKIE_HTTPONLY = False
+# SESSION_COOKIE_HTTPONLY = False
+# CSRF_USE_SESSIONS = False
+# CSRF_COOKIE_SECURE = False
+# SESSION_COOKIE_SECURE = False
+# SESSION_COOKIE_SAMESITE = 'None'
+# CSRF_COOKIE_SAMESITE = 'None'

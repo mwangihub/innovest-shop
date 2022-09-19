@@ -129,7 +129,6 @@ class LogoutView(APIView):
             response = self.logout(request)
         else:
             response = self.http_method_not_allowed(request, *args, **kwargs)
-
         return self.finalize_response(request, response, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):

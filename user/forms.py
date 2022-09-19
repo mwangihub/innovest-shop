@@ -10,6 +10,7 @@ from django.utils.translation import gettext_lazy as _
 from allauth.account.forms import LoginForm
 from allauth.socialaccount.forms import SignupForm
 
+
 class CustomAuthForm(LoginForm):
 
     def __init__(self, *args, **kwargs):
@@ -17,9 +18,9 @@ class CustomAuthForm(LoginForm):
         super().__init__(*args, **kwargs)
         self.fields['login'].widget.attrs.update({
             'class':
-            'form-control rounded-4',
+                'form-control rounded-4',
             'placeholder':
-            "E-mail address"
+                "E-mail address"
         })
         self.fields['login'].label = "E-mail address"
         self.fields['password'].widget.attrs.update({
@@ -32,23 +33,23 @@ class CustomAuthForm(LoginForm):
                 'role': "switch"
             })
 
+
 class CustomAuthSocialForm(SignupForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['email'].widget.attrs.update({
-                    'class':'form-control rounded-4',
-                    'placeholder':"E-mail address"
-                })
+            'class': 'form-control rounded-4',
+            'placeholder': "E-mail address"
+        })
         self.fields['email'].label = "Your email"
-        
-        
+
     def save(self, request):
         user = super(CustomAuthSocialForm, self).save(request)
         # Add your own processing here.
         # You must return the original result.
         return user
-    
-    
+
+
 # App forms
 
 class CustomAuthForm1(AuthenticationForm):
@@ -61,9 +62,9 @@ class CustomAuthForm1(AuthenticationForm):
         super().__init__(*args, **kwargs)
         self.fields['username'].widget.attrs.update({
             'class':
-            'form-control rounded-4',
+                'form-control rounded-4',
             'placeholder':
-            "E-mail address"
+                "E-mail address"
         })
         self.fields['password'].widget.attrs.update({
             'class': 'form-control rounded-4',
@@ -97,7 +98,6 @@ class RegisterForm(forms.ModelForm):
 
 
 class EmployeeSignUpForm(UserCreationForm):
-
     class Meta:
         model = User
         fields = ('email', 'first_name', 'last_name')
@@ -111,7 +111,6 @@ class EmployeeSignUpForm(UserCreationForm):
 
 
 class CustomerSignUpForm(UserCreationForm):
-
     class Meta:
         model = User
         fields = ('email', 'first_name', 'last_name')

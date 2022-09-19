@@ -18,4 +18,5 @@ urlpatterns = [
     path("retrieve-address/", views.RetrieveAddress.as_view(), name="get-address", ),
     path("create-addresses/", views.CreateAddressView.as_view(), name="create-addresses", ),
     path("mpesa-pay/", views.MpesaPay.as_view(), name="mpesa-pay", ),
+    path("crud-shippingAddr/", views.CrudShippingAddrView.as_view(), name="crud_shippingAddr"),
 ]

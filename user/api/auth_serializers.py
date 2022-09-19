@@ -1,11 +1,11 @@
-
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from django.contrib.auth.password_validation import validate_password
 from django.contrib import auth
 from django.conf import settings
-
-from core.methods import send_email
+from user.models import BuyerProfile, InnovestUsersMessages, Project
+from core.methods import _user, send_email
+from api_auth.serializers import UserDetailsSerializer
 
 User = auth.get_user_model()
 
@@ -56,22 +56,13 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ['email', 'password1', 'password2', "buyer", "employee"]
 
     def validate(self, attrs):
-        """
-        The validate function is called when the serializer is passed a dictionary of data. 
-        It validates that all required fields are present and that no extra fields are included. 
-        If validation passes, it returns the validated data as a dictionary; otherwise, it raises an exception.
-        
-        :param self: Reference the class itself
-        :param attrs: Pass the validated data
-        :return: A dictionary with the key 'password2' and a value of none
-        """
         error_obj = {}
         if attrs['password1'] != attrs['password2']:
             error_obj["Password"] = "Password fields didn't match."
         try:
             user = User.objects.get_user_by_email(attrs['email'])
             if user:
-                error_obj["Email"] = "User with this email exists. Try restting password/contact us."
+                error_obj["Email"] = "User with this email exists. Try resting password or contact us."
         except User.DoesNotExist:
             pass
         if len(error_obj) > 0:
@@ -79,15 +70,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        """
-        The create function creates a new user object and saves it to the database.
-        It also sets the password correctly and marks it as active. If ACCOUNT_AUTO_LOGIN_ON_SIGNUP is set, 
-        it automatically logs in the user after creating their account.
-        
-        :param self: Reference the class instance itself
-        :param validated_data: Pass in the dictionary of validated data from our serializer
-        :return: The user object that was created
-        """
         # ACCOUNT_VERIFIED_ON_SIGNUP
         request = self.context.get("request")
         user = User.objects.create(email=validated_data['email'])
@@ -98,31 +80,58 @@ class RegisterSerializer(serializers.ModelSerializer):
         if validated_data['buyer']:
             user.buyer = True
             user.non = False
-        # TODO: confingure google developer console to send email
-        # if settings.ACCOUNT_VERIFIED_ON_SIGNUP:
-        #     send_email('Please, activate your account.', recipients=[email],
-        #                html_and_context= {
-        #                    "template_name": "account/verification_sent.html",
-        #                    "context": {}
-        #                })
-        user.is_active = True
+
+        if settings.ACCOUNT_VERIFIED_ON_SIGNUP:
+            send_email(
+                subject='Please, activate your account.',
+                recipients=[validated_data['email'], ],
+                from_email=[settings.EMAIL_HOST_USER, ]
+                # html_and_content= {"template_name": "account/verification_sent.html","context": {} }
+            )
+        user.is_active = settings.ACCOUNT_VERIFIED_ON_SIGNUP
         user.save()
         if settings.ACCOUNT_AUTO_LOGIN_ON_SIGNUP:
             self.perform_authentication(request, validated_data)
         return user
 
     def perform_authentication(self, request, data, *args, **kwargs):
-        """
-        The perform_authentication function is used to authenticate the user. It takes in a request and data as arguments, 
-        and returns a new_user object if the authentication is successful. If not, it returns None.
-        
-        :param self: Access variables that belongs to the class
-        :param request: Get the user object
-        :param data: Pass the data from the serializer to the authenticate function
-        :param *args: Pass a variable number of arguments to a function
-        :param **kwargs: Pass additional keyword arguments when the function is called
-        :return: The user object
-        """
         new_user = auth.authenticate(email=data['email'], password=data['password1'])
         if new_user is not None:
             auth.login(request, new_user)
+
+
+class BuyerProfileSerializer(serializers.ModelSerializer):
+    account = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BuyerProfile
+        fields = ["account", "avatar", "phone", "address"]
+
+    def get_account(self, obj):
+        user = _user(self.context['request'])
+        return UserDetailsSerializer(obj.user).data
+
+
+class InnovestMessagesSerializers(serializers.ModelSerializer):
+    """
+    Make sure to pass request in context
+    """
+
+    class Meta:
+        model = InnovestUsersMessages
+        fields = ["names", "email", "subject", "message"]
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        session_user = user
+        if user.is_anonymous:
+            req = self.context['request']
+            session_user = f"IP: {req.META.get('REMOTE_ADDR')}, Browser: {req.META.get('HTTP_USER_AGENT')}"
+        attrs['session_user'] = session_user
+        return attrs
+
+
+class ProjectsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Project
+        fields = ["project_name", "category", "client", "project_url", "alias_name", "mentioned_date", "display"]

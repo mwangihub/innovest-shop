@@ -34,8 +34,8 @@ AUTH_INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
-    'allauth.socialaccount.providers.twitter',
-    'allauth.socialaccount.providers.facebook',
+    # 'allauth.socialaccount.providers.twitter',
+    # 'allauth.socialaccount.providers.facebook',
     'api_auth',
     'api_auth.registration',
 ]
@@ -57,7 +57,7 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_AUTHENTICATION_METHOD = "email"
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_VERIFIED_ON_SIGNUP = True
+ACCOUNT_VERIFIED_ON_SIGNUP = False
 ACCOUNT_EMAIL_VERIFICATION = None
 # NB: "mandatory" fails due empty TemplateView were defined just to allow reverse()
 # call inside app check: https://github.com/Tivix/django-rest-auth/issues/15
@@ -96,8 +96,7 @@ SOCIALACCOUNT_FORMS = {
     # 'disconnect': 'allauth.socialaccount.forms.DisconnectForm',
     'signup': 'user.forms.CustomAuthSocialForm',
 }
-SOCIALACCOUNT_ADAPTER = "user.adapter.DefaultSocialAccountAdapter"
-
+SOCIALACCOUNT_ADAPTER = "user.adapter.CustomSocialAccountAdapter"
 
 # REST_USE_JWT = False
 SIMPLE_JWT = {
