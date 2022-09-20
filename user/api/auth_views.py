@@ -65,7 +65,10 @@ class ProjectsMetaData(APIView):
         name = self.request.data.get('name', None)
         if not name:
             return Response({"projects": "Error, could not load this project."}, status=status.HTTP_404_NOT_FOUND)
-        qs = Project.objects.get(alias_name=name)
+        try:
+            qs = Project.objects.get(alias_name=name)
+        except Project.DoesNotExist:
+            qs = Project.objects.get(alias_name="shop")
         serializer = self.serializer_class(qs, many=False, context={'request': self.request})
         return Response({"projects": serializer.data}, status=status.HTTP_200_OK)
 
