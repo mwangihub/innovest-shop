@@ -351,14 +351,16 @@ class OrderDetailView(APIView):
 
     def get(self, *args, **kwargs):
         user = _user(self.request)
-        try:
-            order = Order.objects.get(user=user, ordered=False)
-        except MultipleObjectsReturned:
-            order = Order.objects.filter(user=user, ordered=False)[0]
-        except ObjectDoesNotExist:
-            order = None
-            return Response(None, status=status.HTTP_200_OK)
-        return Response(self.serializer_class(order, many=False).data, status=status.HTTP_200_OK)
+        if user.is_authenticated:
+            try:
+                order = Order.objects.get(user=user, ordered=False)
+            except MultipleObjectsReturned:
+                order = Order.objects.filter(user=user, ordered=False)[0]
+            except ObjectDoesNotExist:
+                order = None
+                return Response(None, status=status.HTTP_200_OK)
+            return Response(self.serializer_class(order, many=False).data, status=status.HTTP_200_OK)
+        return Response({"order": None}, status=status.HTTP_200_OK)
 
 
 class CompletedOrderView(generics.ListAPIView):

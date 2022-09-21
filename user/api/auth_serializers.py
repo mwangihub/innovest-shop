@@ -134,4 +134,4 @@ class InnovestMessagesSerializers(serializers.ModelSerializer):
 class ProjectsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project
-        fields = ["project_name", "category", "client", "project_url", "alias_name", "mentioned_date", "display"]
+        fields = ["id", "project_name", "category", "client", "project_url", "alias_name", "mentioned_date", "display", "deployed_url"]

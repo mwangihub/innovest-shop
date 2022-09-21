@@ -129,13 +129,15 @@ REST_SESSION_LOGIN = True
 # If you're in production, you should serve your website over HTTPS and enable CSRF_COOKIE_SECURE and
 # SESSION_COOKIE_SECURE, which will only allow the cookies to be sent over HTTPS.
 CORS_ALLOWED_ORIGINS = ["http://localhost:3000", ]
-CORS_ORIGIN_ALLOW_ALL = False
-# CORS_ALLOW_HEADERS = ('Access-Control-Allow-Origin',
-#                       'Access-Control-Allow-Credentials',
-#                       'Authorization', 'Content-Type',
-#                       'Cache-Control',
-#                       'X-Requested-With',
-#                       'x-csrftoken')
+CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_HEADERS = (
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Credentials',
+    'Authorization', 'Content-Type',
+    'Cache-Control',
+    'X-Requested-With',
+    'x-csrftoken'
+)
 # CORS_ALLOW_CREDENTIALS = True
 # CSRF_COOKIE_HTTPONLY = False
 # SESSION_COOKIE_HTTPONLY = False

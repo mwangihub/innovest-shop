@@ -17,7 +17,7 @@ sitemaps = {
 }
 
 urlpatterns = [
-    path("sitemap.xml", sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
+    path("sitemap.xml", sitemap, {'sitemaps': sitemaps}, name='innovest_sitemap'),
     path("auth/", include("user.urls")),
     path("shop/", ShopTemplateView.as_view(), name="shop"),
     path("job/", JobTemplateView.as_view(), name="job"),

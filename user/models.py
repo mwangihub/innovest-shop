@@ -259,17 +259,33 @@ class Theme(models.Model):
         return self.session
 
 
+class ProjectQuerySet(models.QuerySet):
+    def get_displayed(self):
+        return self.filter(display=True)
+
+
+class ProjectManager(models.Manager):
+    def get_queryset(self):
+        return ProjectQuerySet(self.model, using=self._db)
+
+    def get_displayed(self):
+        return self.get_queryset().get_displayed()
+
+
 class Project(models.Model):
     project_name = models.CharField(max_length=200, blank=True, null=True)
     category = models.CharField(max_length=200, blank=True, null=True)
     client = models.CharField(max_length=200, blank=True, null=True)
     project_url = models.CharField(max_length=200, blank=True, null=True)
+    deployed_url = models.CharField(max_length=200, blank=True, null=True)
     alias_name = models.CharField(max_length=200, blank=True, null=True)
     mentioned_date = models.DateField(default=date.today)
 
     display = models.BooleanField(default=False)
     start_date = models.DateTimeField(auto_now_add=True)
     updated_date = models.DateTimeField(auto_now=True)
+
+    objects = ProjectManager()
 
     def __str__(self):
         return self.project_name
