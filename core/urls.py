@@ -35,7 +35,7 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += [
-        path('favicon.ico', RedirectView.as_view(url=staticfiles_storage.url('favicons/dev_1.jpg'))),
+        path('favicon.ico', RedirectView.as_view(url=staticfiles_storage.url('favicons/favicon.ico'))),
         path("admin/", admin.site.urls),
     ]
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
