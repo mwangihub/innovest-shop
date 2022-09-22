@@ -1,29 +1,15 @@
+{% extends 'base.html' %}
+
 {% load static %}
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>{{ title }}</title>
-    <meta name="description" content="">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://accounts.google.com/gsi/client" async defer="defer"></script>
-    <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
-    <script src="{% static 'vendor/styles/bootstrap/js/bootstrap.bundle.js' %}"></script>
-    <link rel="manifest" href="{% static 'vendor/json/shop/manifest.json' %}"/>
-    <link href="{% static 'vendor/styles/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
-    <link href="{% static 'vendor/styles/bootstrap-icons/bootstrap-icons.css' %}" rel="stylesheet">
-    <link href="{% static 'vendor/styles/remixicon/remixicon.css' %}" rel="stylesheet">
-    <link href="{% static 'vendor/styles/swiper/swiper-bundle.min.css' %}" rel="stylesheet">
-    <link href="{% static 'vendor/css/main.css' %}" rel="stylesheet">
-    <link href="{% static 'vendor/css/shop.css' %}" rel="stylesheet">
-    <script defer="defer" src="{% static 'vendor/js/masonry.js' %}"></script>
-    <script defer="defer" src="{% static 'vendor/js/main.js' %}"></script>
+
+{% block headJS %}
     <script defer="defer" src="{% static 'vendor/js/shop/main.39325c45.js' %}"></script>
-</head>
+{% endblock headJS %}
 
-<body>
-<div id="root" data-host="{{ domain }}"></div>
-</body>
+{% block stylesheet %}
+    <link href="{% static 'vendor/css/shop.css' %}" rel="stylesheet">
+{% endblock stylesheet %}
 
-</html>
+{% block body %}
+    <div id="root" data-host="{{ domain }}"></div>
+{% endblock body %}

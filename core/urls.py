@@ -7,16 +7,28 @@ import shop.sitemaps
 from shop.views import ShopTemplateView
 from job.views import JobTemplateView
 from home.views import HomeTemplateView
-from django.urls import path, include
+from django.urls import path, re_path, include
 from django.views.generic.base import RedirectView
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.contrib.sitemaps.views import sitemap
+
+
+class FaviconView(RedirectView):
+    permanent = True
+    # query_string = True
+    pattern_name = 'article-detail'
+
+    def get_redirect_url(self, *args, **kwargs):
+        print("redirecting to favicons")
+        return super().get_redirect_url(*args, **kwargs)
+
 
 sitemaps = {
     "static": core.UrlsViewSiteMap.StaticViewSitemap,
 }
 
 urlpatterns = [
+    # path('favicon.ico', RedirectView.as_view(url=staticfiles_storage.url('/staticfiles/favicons/favicon.ico'))),
     path("sitemap.xml", sitemap, {'sitemaps': sitemaps}, name='innovest_sitemap'),
     path("auth/", include("user.urls")),
     path("shop/", ShopTemplateView.as_view(), name="shop"),
@@ -43,5 +55,6 @@ if settings.DEBUG:
 else:
     urlpatterns += [
         path("management/admin/", admin.site.urls),
-        path('favicon.ico', RedirectView.as_view(url=staticfiles_storage.url('favicons/favicon.ico'))),
+        # path('favicon.ico', RedirectView.as_view(url=staticfiles_storage.url('staticfiles/favicons/favicon.ico'))),
+        # re_path(r'^favicon\.ico$', RedirectView.as_view(url=static('/static/favicon.ico'), permanent=True))
     ]

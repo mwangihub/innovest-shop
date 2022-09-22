@@ -185,10 +185,11 @@ class CheckAuth(APIView):
             'isAuthenticated': request.user.is_authenticated,
             'profile': None
         }
-        if request.user.is_authenticated:
-            qs, created = BuyerProfile.objects.get_or_create(user=_user(request))
-            profile = self.serializer_class(instance=qs, many=False, context={"request": self.request})
-            response_obj['profile'] = profile.data
+        qs, created = BuyerProfile.objects.get_or_create(user=_user(request))
+        profile = self.serializer_class(instance=qs, many=False, context={"request": self.request})
+        response_obj['profile'] = profile.data
+        if settings.DEV_MODE:
+            response_obj['isAuthenticated'] = True
         return Response(response_obj, status=status.HTTP_200_OK)
 
 

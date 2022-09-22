@@ -2,7 +2,8 @@ import environ
 from user.auth_config import *
 
 env = environ.Env(
-    DEBUG=(bool, True)
+    DEBUG=(bool, True),
+    DEV_MODE=(bool, False)
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -10,7 +11,7 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = env("SECRET_KEY")
 DEBUG = env('DEBUG')
 
-DEV_MODE = False
+DEV_MODE = env('DEV_MODE')
 ALLOWED_HOSTS = env("ALLOWED_HOSTS").split(",")
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -34,6 +35,7 @@ INSTALLED_APPS += AUTH_INSTALLED_APPS
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -77,7 +79,8 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-if not DEBUG: pass
+if not DEBUG:
+    pass
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator', },
@@ -91,16 +94,17 @@ USE_I18N = True
 USE_TZ = True
 
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'web/static'), ]
-# if DEBUG:
-#     STATICFILES_DIRS += [BASE_DIR / "web/shop/build"]
+STATICFILES_DIRS += AUTH_STATIC
 STATIC_URL = "static/"
 MEDIA_URL = "media/"
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_ROOT = BASE_DIR / "media"
+
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 MIDDLEWARE += CORS_MIDDLEWARE
 TEMPLATES[0]["OPTIONS"]["context_processors"] += CONTEXT_PROCESSORS
-STATICFILES_DIRS += AUTH_STATIC
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 EMAIL_HOST_USER = "pmwassini@gmail.com"
@@ -129,7 +133,7 @@ REST_SESSION_LOGIN = True
 # If you're in production, you should serve your website over HTTPS and enable CSRF_COOKIE_SECURE and
 # SESSION_COOKIE_SECURE, which will only allow the cookies to be sent over HTTPS.
 CORS_ALLOWED_ORIGINS = ["http://localhost:3000", ]
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ORIGIN_ALLOW_ALL = False
 CORS_ALLOW_HEADERS = (
     'Access-Control-Allow-Origin',
     'Access-Control-Allow-Credentials',

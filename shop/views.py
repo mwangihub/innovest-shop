@@ -11,10 +11,10 @@ class ShopTemplateView(TemplateView):
     app_name = None
 
     def get(self, request, *args, **kwargs) -> HttpResponse:
-        self.app_name = self.request.resolver_match.url_name
-        active = app_active_check(self.app_name)
-        if active:
-            return redirect("/")
+        # self.app_name = self.request.resolver_match.url_name
+        # active = app_active_check(self.app_name)
+        # if active:
+        #     return redirect("/")
         domain = f"{request.scheme}://{request.get_host()}/"
         context = {
             'title': "welcome to Innovest shop",
