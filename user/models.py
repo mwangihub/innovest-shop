@@ -167,10 +167,14 @@ class EmployeeProfile(models.Model):
         )  # if self.avatar else static('assets/img/team/default-profile-picture.png')
 
 
+def images_buyer_profile_path(instance, filename):
+    return f'buyer-profile/{instance.user.email}/{filename}'
+
+
 class BuyerProfile(models.Model):
     GENDER = GenderChoice.choices
     user = models.OneToOneField(User, related_name="buyer_profile", on_delete=models.CASCADE)
-    avatar = models.ImageField(upload_to="media/profiles/buyer/avatars/", null=True, blank=True)
+    avatar = models.ImageField(upload_to=images_buyer_profile_path, null=True, blank=True)
     gender = models.CharField(choices=GenderChoice.choices, max_length=1, default=GenderChoice.SELECT)
     phone = PhoneNumberField(null=True, blank=True)
     address = models.CharField(max_length=50, null=True, blank=True, help_text="Include your city or your area.", )

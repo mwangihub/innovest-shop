@@ -239,8 +239,10 @@ h6 {
 # Inputs
 --------------------------------------------------------------*/
 
+
 .form-control:focus,
-.form-check-input:focus {
+.form-check-input:focus,
+.form-select:focus {
     border: 2px solid #86b7fe;
     box-shadow: none !important;
 }

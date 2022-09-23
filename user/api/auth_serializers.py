@@ -102,14 +102,19 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class BuyerProfileSerializer(serializers.ModelSerializer):
     account = serializers.SerializerMethodField()
+    gender = serializers.SerializerMethodField()
+    avatar = serializers.ImageField(allow_empty_file=True)
 
     class Meta:
         model = BuyerProfile
-        fields = ["account", "avatar", "phone", "address"]
+        fields = ["account", "avatar", "phone", "address", "gender"]
 
     def get_account(self, obj):
         user = _user(self.context['request'])
         return UserDetailsSerializer(obj.user).data
+
+    def get_gender(self, obj):
+        return obj.get_gender_display()
 
 
 class InnovestMessagesSerializers(serializers.ModelSerializer):

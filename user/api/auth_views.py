@@ -75,7 +75,6 @@ class GetCSRFTOKENView(APIView):
     def get(self, *args, **kwargs):
         from django.middleware.csrf import get_token
         csrf_token = get_token(self.request)
-        print(csrf_token)
         return Response(
             {'isAuthenticated': self.request.user.is_authenticated,
              "csrf_token": csrf_token
@@ -210,7 +209,6 @@ class RetrieveBuyerProfileView(APIView):
     def post(self, *args, **kwargs) -> HttpResponse:
         user = _user(self.request)
         user_ = user
-        qs = BuyerProfile.objects.get(user=user)
         full_names = self.request.data.get('full_name', None)
         if full_names:
             user_serializer = UserDetailsSerializer(instance=user, data={
@@ -219,17 +217,19 @@ class RetrieveBuyerProfileView(APIView):
             }, partial=True, context={"request": self.request})
             if user_serializer.is_valid():
                 user_ = user_serializer.save()
-        qs = BuyerProfile.objects.get(user=user_)
-        serializer = self.serializer_class(instance=qs, data=self.request.data, partial=True, context={"request": self.request})
-        if serializer.is_valid():
-            serializer.save(user=user)
-            return Response({
-                "details": "Successfully updated profile.",
-                'updated': True,
-                "data": serializer.data
-            }, status=status.HTTP_200_OK)
-        else:
-            return Response(serializer.errors, status=status.HTTP_200_OK)
+        qs, created = BuyerProfile.objects.get_or_create(user=user_)
+        qs.address = self.request.data.get('address', qs.address)
+        qs.phone = self.request.data.get('phone', qs.phone)
+        qs.avatar = self.request.data.get('avatar', qs.avatar)
+        qs.gender = self.request.data.get('gender', qs.gender)
+        qs.user = user
+        profile_update = qs.save()
+        serializer = self.serializer_class(instance=profile_update, many=False, context={"request": self.request})
+        return Response({
+            "details": "Successfully updated profile.",
+            'updated': True,
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
 
 
 # @method_decorator(csrf_exempt, name='dispatch')

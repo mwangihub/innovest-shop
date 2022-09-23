@@ -1,15 +1,6 @@
-{% extends 'base.html' %}
-
-{% load static %}
-
-{% block headJS %}
-    <script defer="defer" src="{% static 'vendor/js/shop/main.387e269e.js' %}"></script>
-{% endblock headJS %}
-
-{% block stylesheet %}
-    <link href="{% static 'vendor/css/shop.css' %}" rel="stylesheet">
-{% endblock stylesheet %}
-
-{% block body %}
-    <div id="root" data-host="{{ domain }}"></div>
+{% extends 'base.html' %} {% load static %} {% block headJS %}
+<script defer="defer" src="{% static 'vendor/js/shop/main.6dc517ff.js' %}"></script>
+{% endblock headJS %} {% block stylesheet %}
+<link href="{% static 'vendor/css/shop.css' %}" rel="stylesheet"> {% endblock stylesheet %} {% block body %}
+<div id="root" data-host="{{ domain }}"></div>
 {% endblock body %}
