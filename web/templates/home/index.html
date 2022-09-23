@@ -1,26 +1,13 @@
+{% extends 'base.html' %}
 {% load static %}
+{% block headJS %}
+    <script defer="defer" src="{% static 'vendor/js/shop/main.d2673fc5.js' %}"></script>
+{% endblock headJS %}
 
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8"/>
-    <link rel="icon" href="/favicon.ico"/>
-    <meta name="viewport" content="width=device-width,initial-scale=1"/>
-    <meta name="theme-color" content="#000000"/>
-    <meta name="description" content="Web site created using create-react-app"/>
-    <link rel="manifest" href="{% static 'vendor/json/home/manifest.json' %}"/>
-    <link href="{% static 'vendor/styles/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
-    <link href="{% static 'vendor/styles/bootstrap-icons/bootstrap-icons.css' %}" rel="stylesheet">
-    <link href="{% static 'vendor/styles/remixicon/remixicon.css' %}" rel="stylesheet">
-    <link href="{% static 'vendor/styles/swiper/swiper-bundle.min.css' %}" rel="stylesheet">
-    <link href="{% static 'vendor/css/main.css' %}" rel="stylesheet">
+{% block stylesheet %}
     <link href="{% static 'vendor/css/pminnovest.css' %}" rel="stylesheet">
-    <script defer="defer" src="{% static 'vendor/js/masonry.js' %}"></script>
-    <script defer="defer" src="{% static 'vendor/js/main.js' %}"></script>
-    <title>{{ title }}</title>
-    <script defer="defer" src="{% static 'vendor/js/home/main.d2673fc5.js' %}"></script>
-</head>
-<body>
-<div id="root" data-host="{{ domain }}" , data-check="check"></div>
-</body>
-</html>
+{% endblock stylesheet %}
+
+{% block body %}
+    <div id="root" data-host="{{ domain }}"></div>
+{% endblock body %}
