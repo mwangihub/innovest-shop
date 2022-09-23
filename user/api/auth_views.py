@@ -192,7 +192,7 @@ class CheckAuth(APIView):
         return Response(response_obj, status=status.HTTP_200_OK)
 
 
-# @method_decorator(csrf_exempt, name='dispatch')
+@method_decorator(csrf_protect, name='dispatch')
 class RetrieveBuyerProfileView(APIView):
     permission_classes = [permissions.AllowAny, ]
     serializer_class = serializers.BuyerProfileSerializer
@@ -232,9 +232,9 @@ class RetrieveBuyerProfileView(APIView):
         }, status=status.HTTP_200_OK)
 
 
-# @method_decorator(csrf_exempt, name='dispatch')
+@method_decorator(csrf_protect, name='dispatch')
 class ChangePasswordAuthUserView(APIView):
-    permission_classes = [permissions.AllowAny, ]
+    permission_classes = [permissions.IsAuthenticated, ]
 
     def post(self, *args, **kwargs):
         user = _user(self.request)
