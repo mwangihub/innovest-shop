@@ -39,7 +39,7 @@ AUTH_INSTALLED_APPS = [
     'api_auth',
     'api_auth.registration',
 ]
-SITE_ID = 2
+SITE_ID = 1
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'SCOPE': [
