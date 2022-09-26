@@ -3,18 +3,18 @@
 {% block content %}
 
 
-<p></p>
-<div class="p-5 mt-1 text-center">
-  <h1 class="fw-bold mb-2">Sign Out</h1>
-  <p class="lead">Are you sure you want to sign out?</p>
-  <form method="post" action="{% url 'account_logout' %}">
-    {% csrf_token %}
-    {% if redirect_field_value %}
-    <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}"/>
-    {% endif %}
-    <button class="btn btn-primary px-5" type="submit">Sign Out</button>
-  </form>
-</div>
+    <p></p>
+    <div class="p-5 mt-1 text-center">
+        <h1 class="fw-bold mb-2">Sign Out</h1>
+        <p class="lead">Are you sure you want to sign out?</p>
+        <form method="post" action="{% url 'account_logout' %}">
+            {% csrf_token %}
+            {% if redirect_field_value %}
+                <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}"/>
+            {% endif %}
+            <button class="btn btn-primary px-5" type="submit">Sign Out</button>
+        </form>
+    </div>
 
 
 

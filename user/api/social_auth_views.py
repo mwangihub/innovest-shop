@@ -1,26 +1,24 @@
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework import permissions
 # SOCIAL VIEWS AUTHENTICATION
 from allauth.socialaccount.models import SocialApp
+from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 # Google login
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
-from django.http import Http404
-from rest_framework import status
+from django.contrib.auth import get_user_model
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api_auth.registration.views import SocialLoginView
 from .social_auth_serializers import SocialAppSerializer
 
-from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
-from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
-
 
 class GoogleLogin(SocialLoginView):
     adapter_class = GoogleOAuth2Adapter
     # CALLBACK_URL_YOU_SET_ON_GOOGLE
-    callback_url = "http://localhost:3000/authentication/signup/"
+    callback_url = "http://localhost:8000"
     client_class = OAuth2Client
 
 

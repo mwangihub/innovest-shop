@@ -63,7 +63,6 @@ class ProjectsMetaData(APIView):
 
     def post(self, format=None, *args, **kwargs):
         qs = Project.objects.all()
-        print(qs)
         serializer = self.serializer_class(qs, many=True, context={'request': self.request})
         return Response({"projects": serializer.data}, status=status.HTTP_200_OK)
 
@@ -131,7 +130,6 @@ class SignUpView(APIView):
     validation_serializer = None
 
     def post(self, request, *args, **kwargs):
-        print(request.data)
         serializer = self.serializer_class(data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
@@ -184,11 +182,16 @@ class CheckAuth(APIView):
             'isAuthenticated': request.user.is_authenticated,
             'profile': None
         }
-        qs, created = BuyerProfile.objects.get_or_create(user=_user(request))
-        profile = self.serializer_class(instance=qs, many=False, context={"request": self.request})
-        response_obj['profile'] = profile.data
-        if settings.DEV_MODE:
-            response_obj['isAuthenticated'] = True
+        if request.user.is_authenticated:
+            qs, created = BuyerProfile.objects.get_or_create(user=_user(request))
+            profile = self.serializer_class(instance=qs, many=False, context={"request": self.request})
+            response_obj['profile'] = profile.data
+        else:
+            if settings.DEV_MODE:
+                qs, created = BuyerProfile.objects.get_or_create(user=_user(request))
+                response_obj['isAuthenticated'] = True
+                response_obj['profile'] = self.serializer_class(instance=qs, many=False, context={"request": self.request}).data
+
         return Response(response_obj, status=status.HTTP_200_OK)
 
 
@@ -199,12 +202,12 @@ class RetrieveBuyerProfileView(APIView):
     parser_class = (MultiPartParser,)
 
     def get(self, format=None, *args, **kwargs) -> HttpResponse:
+        profile = None
         user = _user(self.request)
-        qs, created = BuyerProfile.objects.get_or_create(user=user)
-        profile = self.serializer_class(instance=qs, many=False, context={"request": self.request})
-        return Response({
-            "buyer_profile": profile.data
-        }, status=status.HTTP_200_OK)
+        if not user.is_anonymous:
+            qs, created = BuyerProfile.objects.get_or_create(user=user)
+            profile = self.serializer_class(instance=qs, many=False, context={"request": self.request}).data
+        return Response({"buyer_profile": profile}, status=status.HTTP_200_OK)
 
     def post(self, *args, **kwargs) -> HttpResponse:
         user = _user(self.request)

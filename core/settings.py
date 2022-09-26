@@ -27,7 +27,7 @@ INSTALLED_APPS = [
     "django_countries",
     "phonenumber_field",
     'gmailapi_backend',
-    'user',
+    'user.apps.UserConfig',
     'shop',
     'job'
 ]

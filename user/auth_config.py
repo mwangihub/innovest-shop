@@ -9,9 +9,9 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        # 'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
-        # 'api_auth.jwt_auth.JWTCookieAuthentication',
+        'api_auth.jwt_auth.JWTCookieAuthentication',
     ]
 }
 
@@ -34,12 +34,12 @@ AUTH_INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
-    # 'allauth.socialaccount.providers.twitter',
-    # 'allauth.socialaccount.providers.facebook',
+    'allauth.socialaccount.providers.twitter',
+    'allauth.socialaccount.providers.facebook',
     'api_auth',
     'api_auth.registration',
 ]
-SITE_ID = 1
+SITE_ID = 2
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'SCOPE': [
@@ -82,12 +82,12 @@ ACCOUNT_SESSION_REMEMBER = None
 ACCOUNT_FORMS = {
     # Check https://django-allauth.readthedocs.io/en/latest/forms.html
     #  for more custom forms
-    'login': 'user.forms.CustomAuthForm'
-    # 'signup': 'allauth.account.forms.SignupForm',
+    'login': 'user.forms.CustomAuthForm',
+    'signup': 'user.forms.RegisterForm',
     # 'add_email': 'allauth.account.forms.AddEmailForm',
-    # 'change_password': 'allauth.account.forms.ChangePasswordForm',
+    'change_password': 'user.forms.PasswordChangeForm',
     # 'set_password': 'allauth.account.forms.SetPasswordForm',
-    # 'reset_password': 'allauth.account.forms.ResetPasswordForm',
+    'reset_password': 'user.forms.PasswordResetRequestForm',
     # 'reset_password_from_key': 'allauth.account.forms.ResetPasswordKeyForm',
 }
 SOCIALACCOUNT_AUTO_SIGNUP = True

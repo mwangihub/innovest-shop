@@ -72,6 +72,7 @@ class SocialLoginSerializer(serializers.Serializer):
             raise serializers.ValidationError(_("Define adapter_class in view"))
 
         adapter = adapter_class(request)
+        print(adapter.get_provider().get_app(request))
         app = adapter.get_provider().get_app(request)
 
         # More info on code vs access_token

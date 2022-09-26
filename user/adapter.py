@@ -19,10 +19,14 @@ class DefaultAccountAdapter(AllauthAdapter):
         last_name = data.get("last_name")
         email = data.get("email")
         username = data.get("username")
+        buyer = data.get("buyer", None)
         user_email(user, email)
         user_username(user, username)
         if first_name:
             user_field(user, "first_name", first_name)
+        if buyer:
+            user_field(user, "buyer", buyer)
+            user_field(user, "non", False)
         if last_name:
             user_field(user, "last_name", last_name)
         if settings.ACCOUNT_VERIFIED_ON_SIGNUP:

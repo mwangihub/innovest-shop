@@ -1,1 +1,1 @@
-default_app_config = 'shop.apps.EccormerceConfig'
+default_app_config = 'shop.apps.EcommerceConfig'

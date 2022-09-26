@@ -6,6 +6,7 @@ web/home
 shop/migrations/*
 user/migrations/*
 media
+staticfiles
 # REACT
 ## dependencies
 node_modules

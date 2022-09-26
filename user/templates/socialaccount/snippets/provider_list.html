@@ -1,10 +1,20 @@
-{% load socialaccount %} {% get_providers as socialaccount_providers %} {% for provider in socialaccount_providers %} {% if provider.id == "openid" %} {% for brand in provider.get_brands %}
-<li>
-    <a title="{{brand.name}}" class="socialaccount_provider {{provider.id}} {{brand.id}}" href="{% provider_login_url provider.id openid=brand.openid_url process=process %}">{{brand.name}}</a>
-</li>
-{% endfor %} {% endif %}
-<a class="w-100 py-2 mb-2 btn btn-outline-secondary btn-{{provider.id}} rounded-4" href="{% provider_login_url provider.id process=process scope=scope auth_params=auth_params %}">
-    <i class="bi-google me-1"></i>Sign in with {{provider.name}}
-</a>
+{% load socialaccount %}
+{% get_providers as socialaccount_providers %}
+{% for provider in socialaccount_providers %}
+    {% if provider.id == "openid" %}
+        {% for brand in provider.get_brands %}
+            <li>
+                <a title="{{ brand.name }}" class="socialaccount_provider {{ provider.id }} {{ brand.id }}"
+                   href="{% provider_login_url provider.id openid=brand.openid_url process=process %}">{{ brand.name }}</a>
+            </li>
+        {% endfor %}
+    {% endif %}
+
+    <a class="w-100 py-2 mb-2 btn
+{% if provider.id == 'google' %} btn-outline-dark {% elif provider.id == 'twitter' %} btn-outline-primary {% elif provider.id == 'facebook' %} btn-outline-secondary
+            {% endif %}  rounded-4"
+       href="{% provider_login_url provider.id process=process scope=scope auth_params=auth_params %}">
+        <i class="bi bi-{{ provider.name|lower }} me-1"></i>Sign in with {{ provider.name }}
+    </a>
 
 {% endfor %}

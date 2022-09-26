@@ -4,11 +4,12 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>{{ title }}</title>
+    {% block title %} {% endblock title %}
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="shortcut icon" href="{% static 'favicons/favicon.ico' %}">
-    <script src="https://accounts.google.com/gsi/client" async defer="defer"></script>
+    {% comment %}
+        <script src="https://accounts.google.com/gsi/client" async defer="defer"></script> {% endcomment %}
     <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
     <script src="{% static 'vendor/styles/bootstrap/js/bootstrap.bundle.js' %}"></script>
     <link rel="manifest" href="{% static 'vendor/json/shop/manifest.json' %}"/>
@@ -23,6 +24,7 @@
     {% block stylesheet %} {% endblock stylesheet %}
 </head>
 <body>
+
 {% block body %} {% endblock body %}
 </body>
 </html>
