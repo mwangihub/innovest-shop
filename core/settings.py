@@ -115,9 +115,7 @@ EMAIL_PORT = 587
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
 EMAIL_USE_TLS = True
 ALLOWED_EMAIL = ['wingdevelop@gmail.com', 'demo.mail.wing@gmail.com']
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-]
+CSRF_TRUSTED_ORIGINS = ["http://localhost:3000", ]
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 REST_SESSION_LOGIN = True
 # CSRF_COOKIE_SAMESITE = 'Strict'

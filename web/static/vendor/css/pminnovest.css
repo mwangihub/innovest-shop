@@ -1,9 +1,9 @@
 :root {
-    --theme-primary: #6597e6
+    --theme-primary: #3c0bed
 }
 
 .border-theme {
-    border: 1px solid var(--theme-primary);
+    border: 2px solid var(--theme-primary);
 }
 
 .text-theme {
@@ -22,7 +22,7 @@
 }
 
 #innovest-layout .card {
-    border: 1px solid var(--theme-primary);
+    border: 2px solid var(--theme-primary);
 }
 
 #innovest-layout .container {

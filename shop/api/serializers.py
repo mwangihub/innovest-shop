@@ -14,6 +14,86 @@ def _user(request=None):
     return User.objects.get(email="pmwassini@gmail.com")
 
 
+class ItemSubCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ItemSubCategory
+        fields = '__all__'
+
+
+class ItemCategorySerializer(serializers.ModelSerializer):
+    sub_categories = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ItemCategory
+        fields = '__all__'
+
+    def get_sub_categories(self, obj):
+        req = self.context
+        qs = obj.main_cat.all()
+        return ItemSubCategorySerializer(qs, many=True).data
+
+
+class ItemTrendingSerializer(serializers.ModelSerializer):
+    get_main_category = serializers.ReadOnlyField()
+    get_item_images = serializers.ReadOnlyField()
+
+    class Meta:
+        model = ItemTrending
+        fields = '__all__'
+
+
+class ItemReviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ItemReview
+        fields = "__all__"
+
+
+class ItemImagesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ItemPicture
+        fields = '__all__'
+
+
+class ItemSerializer(serializers.ModelSerializer):
+    label = serializers.SerializerMethodField()
+    # size = serializers.SerializerMethodField()
+    category_name = serializers.ReadOnlyField()
+    main_category_name = serializers.ReadOnlyField()
+    reviews = ItemReviewSerializer(many=True, read_only=False)
+    item_images = ItemImagesSerializer(many=True, read_only=False)
+    # delete_from_cart_url = serializers.SerializerMethodField()
+    delete_from_cart_url = serializers.URLField(source='get_delete_from_cart_url', read_only=True)
+    add_to_cart_url = serializers.URLField(source='get_add_to_cart_url', read_only=True)
+    reduce_qty_url = serializers.URLField(source='get_reduce_qty_url', read_only=True)
+    add_qty_url = serializers.URLField(source='get_add_qty_url', read_only=True)
+    cart_count = serializers.SerializerMethodField()
+    size_choices = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Item
+        fields = '__all__'
+
+    def get_label(self, obj):
+        req = self.context
+        return obj.get_label_display()
+
+    def get_size_choices(self, obj):
+        if hasattr(obj.content_type, 'model_class'):
+            if hasattr(obj.content_type.model_class(), 'SIZE_CHOICES'):
+                return obj.content_type.model_class().SIZE_CHOICES
+        req = self.context
+        return None
+
+    def get_cart_count(self, obj):
+        item_in_cart = obj.in_cart.all().filter(item=obj, ordered=False)
+        if item_in_cart.exists():
+            return item_in_cart[0].quantity
+
+    def get_add_to_cart_url(self, obj):
+        obj_url = obj.get_add_to_cart_url()
+        return self.context["request"].build_absolute_uri(obj_url)
+
+
 class AddressSerializer(CountryFieldMixin, serializers.ModelSerializer):
     country = CountryField()
     country_full = serializers.SerializerMethodField()
@@ -23,6 +103,7 @@ class AddressSerializer(CountryFieldMixin, serializers.ModelSerializer):
         fields = ("id", "user", "address", "state", "country", "country_full", "phone", "first_name", "last_name", "_default")
 
     def get_country_full(self, address):
+        req = self.context
         return address.country.name
 
     def validate(self, attrs):
@@ -32,55 +113,6 @@ class AddressSerializer(CountryFieldMixin, serializers.ModelSerializer):
             attrs['country'] = "KE"
         attrs['user'] = user
         return attrs
-
-
-class ItemReviewSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ItemReview
-        fields = "__all__"
-
-
-class ItemSerializer(serializers.ModelSerializer):
-    label = serializers.SerializerMethodField()
-    category = serializers.SerializerMethodField()
-    category = serializers.SerializerMethodField()
-    cart_count = serializers.SerializerMethodField()
-    # image = serializers.SerializerMethodField()
-    # remove_from_cart = serializers.SerializerMethodField()
-    # add_to_cart = serializers.SerializerMethodField()
-    reviews = ItemReviewSerializer(many=True, read_only=False)
-
-    class Meta:
-        model = Item
-        fields = ("id", "title", "price", "discounted_price", "category", "label", "slug", "description", "image", "stock", "rating_count", "rates", "reviews", "cart_count",)
-
-    def get_label(self, obj):
-        return obj.get_label_display()
-
-    def get_image(self, obj):
-        product_image = obj.image
-        return self.context["request"].build_absolute_uri(product_image)
-
-    # def get_reviews(self, obj):
-    #     # note the related_name in the model
-    #     return  ItemReviewSerializer(obj.reviews.all(), many=True).data
-
-    def get_category(self, obj):
-        # return obj.get_category_display()
-        return obj.category
-
-    def get_cart_count(self, obj):
-        item_in_cart = obj.in_cart.all().filter(item=obj, ordered=False)
-        if item_in_cart.exists():
-            return item_in_cart[0].quantity
-
-    def get_remove_from_cart(self, obj):
-        obj_url = obj.get_remove_from_cart_url()
-        return self.context["request"].build_absolute_uri(obj_url)
-
-    def get_add_to_cart(self, obj):
-        obj_url = obj.get_add_to_cart_url()
-        return self.context["request"].build_absolute_uri(obj_url)
 
 
 class CartItemSerializer(serializers.ModelSerializer):
@@ -100,12 +132,14 @@ class CartItemSerializer(serializers.ModelSerializer):
     item = serializers.SerializerMethodField()
 
     def get_item(self, obj):
-        return ItemSerializer(obj.item, read_only=False).data
+        return ItemSerializer(obj.item, read_only=False, context=self.context).data
 
     def get_total(self, obj):
+        req = self.context
         return obj.get_final_price()
 
     def get_amnt_saved(self, obj):
+        req = self.context
         return obj.get_amount_saved()
 
 
@@ -136,22 +170,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = (
-            "id",
-            "items",
-            "order_total",
-            "total_discount",
-            "coupon",
-            "address",
-            "payment",
-            "ref_code",
-            "ordered",
-            "start_date",
-            "ordered",
-            'being_delivered',
-            "refund_requested",
-            "refund_granted",
-            'received')
+        fields = '__all__'
 
     def get_ordered(self, obj):
         return obj.ordered

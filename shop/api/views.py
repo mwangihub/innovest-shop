@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from rest_framework import status, permissions, generics
+from rest_framework.generics import RetrieveAPIView, ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -48,6 +49,22 @@ def get_item_in_order(slug, request):
         else:
             return None
     return None
+
+
+class ItemsCategoriesListAPIView(ListAPIView):
+    model = ItemCategory
+    serializer_class = s.ItemCategorySerializer
+    permission_classes = [permissions.AllowAny, ]
+    queryset = ItemCategory.objects.all()
+
+
+class TrendingItemsListAPIView(ListAPIView):
+    serializer_class = s.ItemTrendingSerializer
+    permission_classes = [permissions.AllowAny, ]
+
+    def get_queryset(self):
+        queryset = ItemTrending.objects.all()[:3]
+        return queryset
 
 
 # Fake api of products
@@ -92,9 +109,7 @@ class ItemDetailView(generics.RetrieveAPIView):
 
 
 class AddressAPIView(generics.ListAPIView):
-    permissions_classes = [
-        permissions.AllowAny,
-    ]
+    permissions_classes = [permissions.AllowAny, ]
     queryset = Address.objects.all()
     serializer_class = s.AddressSerializer
 
@@ -120,69 +135,63 @@ class ItemsAPIView(APIView):
 # REQUIRE AUTHENTICATION
 # @method_decorator(csrf_protect, name="dispatch")
 class AddToCartAPIView(APIView):
+    """Adding to cart API"""
     permission_classes = [permissions.AllowAny]
     order_serializer = s.OrderSerializer
     item_serializer = s.ItemSerializer
 
     def post(self, request, *args, **kwargs) -> HttpResponse:
-        slug = request.data.get("slug", None)
+        slug = request.data.get("slug", None) or kwargs.get('slug', None)
+        quantity = request.data.get("quantity", None) or kwargs.get('quantity', None)
+        color = request.data.get("color", None) or kwargs.get('color', None)
+        size = request.data.get("size", None) or kwargs.get('size', None)
         user = _user(request)
         if slug is None:
-            return Response(
-                {"details": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"details": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
         item = get_object_or_404(Item, slug=slug)
-
-        order_item, created = CartItem.objects.get_or_create(
-            item=item, user=user, ordered=False
-        )
+        item.stock -= quantity
+        item.save()
+        order_item, created = CartItem.objects.get_or_create(item=item, user=user, ordered=False)
         order_qs = Order.objects.filter(user=user, ordered=False)
         if order_qs.exists():
             order = order_qs[0]
-            item.stock -= 1
-            item.save()
             if order.items.filter(item__slug=item.slug).exists():
                 order_item.quantity += 1
                 order_item.save()
             else:
+                order_item.quantity = quantity
                 order.items.add(order_item)
-            return Response(
-                {
-                    "details": f"{item.title} quantity updated",
-                    "item": self.item_serializer(item, context={"request": request}).data,
-                    "order": self.order_serializer(order, context={"request": request}).data,
-                    "items": s.ItemSerializer(Item.objects.all(), many=True, context={"request": request}).data,
-                },
-                status=status.HTTP_200_OK,
-            )
+            return Response({
+                "details": f"{item.title} quantity updated",
+                "item": self.item_serializer(item, context={"request": request}).data,
+                "order": self.order_serializer(order, context={"request": request}).data,
+                "items": s.ItemSerializer(Item.objects.all(), many=True, context={"request": request}).data,
+            }, status=status.HTTP_200_OK)
         else:
             ordered_date = timezone.now()
             order = Order.objects.create(user=user, ordered_date=ordered_date, ref_code=create_ref_code())
+            order_item.quantity = quantity
+            order_item.save()
             order.items.add(order_item)
-            item.stock -= 1
-            item.save()
-            return Response(
-                {
-                    "details": f"{item.title} added to your cart",
-                    "item": self.item_serializer(item, context={"request": request}).data,
-                    "order": self.order_serializer(order, context={"request": request}).data,
-                    "items": s.ItemSerializer(Item.objects.all(), many=True, context={"request": request}).data,
-                },
-                status=status.HTTP_200_OK,
-            )
+            return Response({
+                "details": f"{item.title} added to your cart",
+                "item": self.item_serializer(item, context={"request": request}).data,
+                "order": self.order_serializer(order, context={"request": request}).data,
+                "items": s.ItemSerializer(Item.objects.all(), many=True, context={"request": request}).data,
+            }, status=status.HTTP_200_OK)
 
 
-# @method_decorator(csrf_protect, name="dispatch")
+@method_decorator(csrf_protect, name="dispatch")
 class DeleteItemFromCartView(APIView):
     """
     - Api that provide functionality to delete item from the cart
     - User must be authenticated
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated, ]
 
     def post(self, request, format=None, *args, **kwargs):
         user = _user(request)
-        slug = request.data.get("slug", None)
+        slug = request.data.get("slug", None) or kwargs.get('slug', None)
         if slug is None:
             return Response(
                 {"details": "Invalid request"}, status=status.HTTP_200_OK
@@ -209,7 +218,7 @@ class DeleteItemFromCartView(APIView):
                 return Response(
                     {
                         "details": f"{item.title} - removed from your cart.",
-                        "item": s.ItemSerializer(item).data,
+                        "item": s.ItemSerializer(item, context={'request': request}).data,
                         "order": order_response,
                     },
                     status=status.HTTP_200_OK,
@@ -218,7 +227,7 @@ class DeleteItemFromCartView(APIView):
                 return Response(
                     {
                         "details": "This item was not in your cart",
-                        "item": s.ItemSerializer(item).data,
+                        "item": s.ItemSerializer(item, context={'request': request}).data,
                         "order": s.OrderSerializer(order, context={"request": request}).data,
                     },
                     status=status.HTTP_200_OK,
@@ -227,23 +236,23 @@ class DeleteItemFromCartView(APIView):
             return Response(
                 {
                     "details": "You do not have an active order",
-                    "item": s.ItemSerializer(item).data,
+                    "item": s.ItemSerializer(item, context={'request': request}).data,
                     "order": None,
                 },
                 status=status.HTTP_200_OK,
             )
 
 
-# @method_decorator(csrf_protect, name="dispatch")
-class ReduceItemFromCartView(APIView):
+@method_decorator(csrf_protect, name="dispatch")
+class ReduceItemQuantityView(APIView):
     """
     - Api that provide functionality to reduce item from the cart by 1
     - User must be authenticated
     """
-    permission_classes = [permissions.AllowAny, ]
+    permission_classes = [permissions.IsAuthenticated, ]
 
     def post(self, request, format=None, *args, **kwargs):
-        slug = request.data.get("slug", None)
+        slug = request.data.get("slug", None) or kwargs.get('slug', None)
         user = _user(request)
         response_obj = {}
         if slug is None:
@@ -262,7 +271,7 @@ class ReduceItemFromCartView(APIView):
                     item.save()
                     order_item.save()
                     response_obj["details"] = "Item quantity updated."
-                    response_obj["item"] = s.ItemSerializer(item).data
+                    response_obj["item"] = s.ItemSerializer(item, context={'request': request}).data
                     response_obj["order"] = s.OrderSerializer(order, context={"request": request}).data
                     return Response(response_obj, status=status.HTTP_200_OK)
                 else:
@@ -280,69 +289,54 @@ class ReduceItemFromCartView(APIView):
 
             else:
                 response_obj["order"] = s.OrderSerializer(order, context={"request": request}).data
-                response_obj["item"] = s.ItemSerializer(item).data
+                response_obj["item"] = s.ItemSerializer(item, context={'request': request}).data
                 response_obj["details"] = "This item is not in your cart"
                 return Response(response_obj, status=status.HTTP_200_OK)
         else:
             response_obj["order"] = None
-            response_obj["item"] = s.ItemSerializer(item).data
+            response_obj["item"] = s.ItemSerializer(item, context={'request': request}).data
             response_obj["details"] = "You do not have an active order"
             return Response(response_obj, status=status.HTTP_200_OK)
 
 
-# @method_decorator(csrf_protect, name="dispatch")
-class AddItemToCartView(APIView):
-    """
-    - Api that provide functionality to add item to cart
-    - User must be authenticated
-    """
-    permission_classes = [permissions.AllowAny, ]
+@method_decorator(csrf_protect, name="dispatch")
+class AddItemQuantityAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated, ]
 
     def post(self, request, format=None, *args, **kwargs):
-        slug = request.data.get("slug", None)
+        slug = self.request.data.get("slug", None) or kwargs.get('slug', None)
         user = _user(request)
         if slug is None:
-            return Response(
-                {"details": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"details": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
         item = get_object_or_404(Item, slug=slug)
         order_qs = Order.objects.filter(user=user, ordered=False)
-        if order_qs.exists():
-            order = order_qs[0]
-            if order.items.filter(item__slug=item.slug).exists():
-                order_item = CartItem.objects.filter(
-                    item=item, user=user, ordered=False
-                )[0]
+        try:
+            assert order_qs.exists(), "No active order!"
+            order = order_qs.first()
+            try:
+                assert order.items.filter(item__slug=item.slug).exists(), "Item not in cart"
+                order_item = CartItem.objects.filter(item=item, user=user, ordered=False).first()
                 order_item.quantity += 1
                 item.stock -= 1
                 item.save()
                 order_item.save()
-                return Response(
-                    {
-                        "details": "Item quantity updated.",
-                        "item": s.ItemSerializer(item).data,
-                        "order": s.OrderSerializer(order, context={"request": request}).data,
-                    },
-                    status=status.HTTP_200_OK,
-                )
-            else:
-                return Response(
-                    {
-                        "details": "This item is not in your cart",
-                        "item": s.ItemSerializer(item).data,
-                        "order": s.OrderSerializer(order, context={"request": request}).data,
-                    },
-                    status=status.HTTP_200_OK,
-                )
-        else:
-            return Response(
-                {
-                    "details": "You do not have an active order",
-                    "item": s.ItemSerializer(item).data,
-                    "order": None,
-                },
-                status=status.HTTP_200_OK,
-            )
+                return Response({
+                    "details": "Item quantity updated.",
+                    "item": s.ItemSerializer(item, context={'request': request}).data,
+                    "order": s.OrderSerializer(order, context={"request": request}).data,
+                }, status=status.HTTP_200_OK)
+            except AssertionError:
+                return Response({
+                    "details": "This item is not in your cart",
+                    "item": s.ItemSerializer(item, context={'request': request}).data,
+                    "order": s.OrderSerializer(order, context={"request": request}).data,
+                }, status=status.HTTP_200_OK)
+        except AssertionError:
+            return Response({
+                "details": "You do not have an active order",
+                "item": s.ItemSerializer(item, context={'request': request}).data,
+                "order": None,
+            }, status=status.HTTP_200_OK)
 
 
 class OrderDetailView(APIView):
@@ -359,7 +353,7 @@ class OrderDetailView(APIView):
             except ObjectDoesNotExist:
                 order = None
                 return Response(None, status=status.HTTP_200_OK)
-            return Response(self.serializer_class(order, many=False).data, status=status.HTTP_200_OK)
+            return Response(self.serializer_class(order, many=False, context={'request': self.request}).data, status=status.HTTP_200_OK)
         return Response({"order": None}, status=status.HTTP_200_OK)
 
 
@@ -379,7 +373,7 @@ class AddCouponView(APIView):
     - Api that adds a coupon to the  order and reduces the amount charged with the value of the coupon
     - User must be authenticated
     """
-    permission_classes = [permissions.AllowAny, ]
+    permission_classes = [permissions.IsAuthenticated, ]
 
     def post(self, request, format=None, *args, **kwargs):
         user = _user(request)
@@ -488,9 +482,9 @@ class CreateAddressView(APIView):
         return self.create_address(request)
 
 
-# @method_decorator(csrf_protect, name="dispatch")
+@method_decorator(csrf_protect, name="dispatch")
 class CrudShippingAddrView(APIView):
-    permission_classes = [permissions.AllowAny, ]
+    permission_classes = [permissions.IsAuthenticated, ]
 
     def get_address(self, *args, **kwargs):
         user = _user(self.request)
@@ -583,9 +577,9 @@ class MpesaPay(APIView):
         order_items.update(ordered=True)
         for item in order_items:
             qty = item.quantity
-            item.item.stock -= qty
+            if item.item.stock >= qty:
+                item.item.stock -= qty
             item.item.save()
-
             item.save()
         order.ordered = True
         order.save()

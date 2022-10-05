@@ -85,7 +85,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             send_email(
                 subject='Please, activate your account.',
                 recipients=[validated_data['email'], ],
-                from_email=[settings.EMAIL_HOST_USER, ]
+                from_email=settings.EMAIL_HOST_USER,
                 # html_and_content= {"template_name": "account/verification_sent.html","context": {} }
             )
         user.is_active = settings.ACCOUNT_VERIFIED_ON_SIGNUP

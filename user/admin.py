@@ -42,8 +42,13 @@ class InnovestUsersMessagesAdmin(admin.ModelAdmin):
     list_display = ("names", "email", "subject", "created_at", "session_user")
 
 
+class DebugFrontEndAdmin(admin.ModelAdmin):
+    list_display = ("project", "debug",)
+
+
 admin.site.unregister(Group)
 admin.site.register(acc_db.User, UserAdmin)
+admin.site.register(acc_db.DebugFrontEnd, DebugFrontEndAdmin)
 admin.site.register(acc_db.Project)
 admin.site.register(acc_db.BuyerProfile, BuyerProfileAdmin)
 admin.site.register(acc_db.InnovestUsersMessages, InnovestUsersMessagesAdmin)

@@ -1,5 +1,6 @@
 from django.conf import settings
 from allauth.account.adapter import DefaultAccountAdapter as AllauthAdapter
+# allauth.account.adapter.DefaultAccountAdapter:
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter as SocialAdapter
 
 word_before = lambda sentence, word: sentence.split()[sentence.split().index(

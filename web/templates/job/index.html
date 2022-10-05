@@ -1,10 +1,53 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Jobs</title>
-</head>
-<body>
-Job APP
-</body>
-</html>
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %} GTG Solution LTD  {% endblock title %}
+
+{% block headJS %}
+
+
+{% endblock headJS %}
+
+{% block stylesheet %}
+
+{% endblock stylesheet %}
+
+{% block body %}
+
+    <div class="px-4 pt-5 my-5 text-center">
+        <h2 class=" fw-bold">GTG Solutions LTD was incorporated in 2018 ...</h2>
+        <div class="col-lg-6 mx-auto">
+            <p class="lead mb-4">GTG Solution LTD was incorporated in 2018 with an aim to assist foreign companies with finding highly skilled Kenyan employees for a variety of roles.
+                It is among the leading recruitment agencies; it is accredited by the Ministry of Labour and is a member of the Institute of Human Resource Management (IHRM).
+                Vision
+            </p>
+            <div class="d-grid gap-2 d-sm-flex justify-content-sm-center mb-5">
+                <a href="https://gtgsolutions.ltd" target="_blank" class="btn btn-primary btn-lg px-5 me-sm-3">Visit &rarr;</a>
+            </div>
+        </div>
+        <div class="col-lg-8 mx-auto mb-2">
+            <div class="container">
+                <div class="row g-5">
+                    <div class="col-md-6">
+                        <h5>Vision</h5>
+                        <p>To be a trusted and reliable recruiting agent in Africa for employers and job-seekers.</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Mission</h5>
+                        <p>Enforcing professionalism, Ethics and transparency to our clients.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="overflow-hidden" style="max-height: 30vh;">
+            <div class="container px-5">
+                <img src=" {% static 'vendor/img/Capture.PNG' %}" class="img-fluid border rounded-3 shadow-lg mb-4" alt="Example image" loading="lazy" width="700" height="500">
+            </div>
+
+        </div>
+    </div>
+
+{% endblock body %}

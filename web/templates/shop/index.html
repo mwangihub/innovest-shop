@@ -1,7 +1,20 @@
-{% extends 'base.html' %} {% load static %} {% block headJS %}
+{% extends 'base.html' %}
 
-<script defer="defer" src="{% static 'vendor/js/shop/main.d997883a.js' %}"></script>
+ {% load static %} 
+
+ {% block title %} Mt. Kenya Innovest shop project {% endblock title %}
+ {% block headJS %}
+
+<script defer="defer" src="{% static 'vendor/js/shop/main.628f4d88.js' %}"></script>
+
 {% endblock headJS %} {% block stylesheet %}
-<link href="{% static 'vendor/css/shop.css' %}" rel="stylesheet"> {% endblock stylesheet %} {% block body %}
-<div id="root" data-host="{{ domain }}"></div>
+
+<link href="{% static 'vendor/css/shop.css' %}" rel="stylesheet"> 
+
+{% endblock stylesheet %} 
+
+{% block body %}
+
+<div id="root" data-host="{{ domain }}" data-check="{{debug}}"></div>
+
 {% endblock body %}

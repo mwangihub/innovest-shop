@@ -80,7 +80,7 @@ class GetCSRFTOKENView(APIView):
              }, status=status.HTTP_200_OK)
 
 
-# @method_decorator(csrf_protect, name='dispatch')
+@method_decorator(csrf_protect, name='dispatch')
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny, ]
     serializer_class = serializers.LoginSerializer
@@ -135,7 +135,9 @@ class SignUpView(APIView):
             serializer.save()
             if settings.ACCOUNT_AUTO_LOGIN_ON_SIGNUP:
                 user = request.user
-                profile = UserDetailsSerializer(user, many=False, context={"request": request})
+                qs, created = BuyerProfile.objects.get_or_create(user=user)
+                profile = serializers.BuyerProfileSerializer(instance=qs, many=False, context={"request": request})
+                # profile = UserDetailsSerializer(user, many=False, context={"request": request})
                 # return is_authenticated_response(request, profile, serializer.data, status.HTTP_201_CREATED)
                 return Response({
                     "profile": profile.data,
@@ -160,7 +162,7 @@ class LogOutView(APIView):
     def post(self, request, *args, **kwargs) -> HttpResponse:
         """
           The post function logs out the user and returns a response with a success message.
-          :param self: Access the class that is calling it
+          param self: Access the class that is calling it
           :param request: Get the current request object
           :param *args: Pass a variable number of arguments to a function
           :param **kwargs: Pass a variable number of keyword arguments to a function

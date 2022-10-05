@@ -263,6 +263,14 @@ class Theme(models.Model):
         return self.session
 
 
+class DebugFrontEnd(models.Model):
+    project = models.ForeignKey('user.Project', on_delete=models.CASCADE, )
+    debug = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.project.project_name
+
+
 class ProjectQuerySet(models.QuerySet):
     def get_displayed(self):
         return self.filter(display=True)

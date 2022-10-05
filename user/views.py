@@ -1,10 +1,7 @@
-from allauth.account import app_settings
-from allauth.account.views import SignupView, sensitive_post_parameters_m
 from allauth.account.utils import passthrough_next_redirect_url
 from allauth.account.views import LoginView
-from allauth.utils import get_request_param
+from allauth.account.views import SignupView
 from django.contrib.sites.shortcuts import get_current_site
-from django.shortcuts import redirect
 from django.urls import reverse
 
 
@@ -32,14 +29,11 @@ class AccountLoginView(LoginView):
             redirect_field_value = referer
         if direct_to is not None:
             redirect_field_value = direct_to
-        ret.update(
-            {
-                "signup_url": signup_url,
-                "site": site,
-                "redirect_field_name": self.redirect_field_name,
-                "redirect_field_value": redirect_field_value,
-            }
-        )
+        ret.update({"signup_url": signup_url,
+                    "site": site,
+                    "redirect_field_name": self.redirect_field_name,
+                    "redirect_field_value": redirect_field_value,
+                    })
         return ret
 
 
@@ -68,14 +62,12 @@ class AccountSignUpView(SignupView):
             redirect_field_value = referer
         if direct_to is not None:
             redirect_field_value = direct_to
-        ret.update(
-            {
-                "signup_url": signup_url,
-                "site": site,
-                "redirect_field_name": self.redirect_field_name,
-                "redirect_field_value": redirect_field_value,
-            }
-        )
+        ret.update({
+            "signup_url": signup_url,
+            "site": site,
+            "redirect_field_name": self.redirect_field_name,
+            "redirect_field_value": redirect_field_value,
+        })
         return ret
 
 
