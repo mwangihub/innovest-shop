@@ -193,11 +193,10 @@ class CheckAuth(APIView):
                 qs, created = BuyerProfile.objects.get_or_create(user=_user(request))
                 response_obj['isAuthenticated'] = True
                 response_obj['profile'] = self.serializer_class(instance=qs, many=False, context={"request": self.request}).data
-
         return Response(response_obj, status=status.HTTP_200_OK)
 
 
-@method_decorator(csrf_protect, name='dispatch')
+@method_decorator(csrf_exempt, name='dispatch')
 class RetrieveBuyerProfileView(APIView):
     permission_classes = [permissions.AllowAny, ]
     serializer_class = serializers.BuyerProfileSerializer

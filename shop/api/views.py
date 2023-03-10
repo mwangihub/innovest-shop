@@ -3,28 +3,59 @@ import random
 import string
 
 import requests
+from channels.layers import get_channel_layer
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt, csrf_protect
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status, permissions, generics
-from rest_framework.generics import RetrieveAPIView, ListAPIView
+from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from api_auth.registration.serializers import RegisterSerializer
+from core.methods import _user
 from shop.models import *
 from . import serializers as s
-from core.methods import _user
+
+from rest_framework import serializers
+from phonenumber_field.serializerfields import PhoneNumberField
+from phonenumber_field.validators import validate_international_phonenumber
+from django.forms.models import model_to_dict
+
+
+class PhoneSerializer(serializers.Serializer):
+    phone_number = PhoneNumberField(validators=[validate_international_phonenumber])
+
+
+def validate_phone_number(phone_number):
+    serializer = PhoneSerializer(data={"phone_number": phone_number})
+    if serializer.is_valid():
+        return phone_number
+    else:
+        print(serializer.errors)
+        return None
+
+
+channel_layer = get_channel_layer()
+
+User = get_user_model()
 
 
 def create_ref_code():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=20))
 
 
-User = get_user_model()
+def is_valid_form(values):
+    valid = True
+    for field in values:
+        if field == '' or None:
+            valid = False
+    return valid
 
 
 def get_item_in_order(slug, request):
@@ -58,13 +89,14 @@ class ItemsCategoriesListAPIView(ListAPIView):
     queryset = ItemCategory.objects.all()
 
 
-class TrendingItemsListAPIView(ListAPIView):
+class TrendingItemsListAPIView(APIView):
     serializer_class = s.ItemTrendingSerializer
     permission_classes = [permissions.AllowAny, ]
 
-    def get_queryset(self):
-        queryset = ItemTrending.objects.all()[:3]
-        return queryset
+    def get(self, *args, **kwargs):
+        queryset = ItemTrending.objects.all()
+        serializer = self.serializer_class(queryset, many=True, context={"request": self.request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # Fake api of products
@@ -95,6 +127,7 @@ class AutoCreateProducts(APIView):
         }, status=status.HTTP_200_OK)
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class ItemDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = s.ItemSerializer
@@ -108,32 +141,31 @@ class ItemDetailView(generics.RetrieveAPIView):
             return None
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class AddressAPIView(generics.ListAPIView):
     permissions_classes = [permissions.AllowAny, ]
     queryset = Address.objects.all()
     serializer_class = s.AddressSerializer
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class ItemsAPIView(APIView):
     """
-    The get function returns a list of all items in the database.
-    :param self: Reference the class itself
-    :param request: Access the request made by the client
-    :param format=None: Specify the format of the data being returned
-    :return: A list of all the items in the database
-    :doc-author: Trelent
+    A view that returns a list of all items in the database.
     """
-
     permission_classes = [permissions.AllowAny]
+    # queryset =
+    serializer_class = s.ItemSerializer
 
-    def get(self, request, format=None):
-        queryset = Item.objects.all()
-        serializer = s.ItemSerializer(queryset, many=True, context={"request": request})
+    def get(self, *args, **kwargs):
+        qs = Item.objects.all()
+        serializer = s.ItemSerializer(qs, many=True, context={"request": self.request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # REQUIRE AUTHENTICATION
 # @method_decorator(csrf_protect, name="dispatch")
+@method_decorator(csrf_exempt, name="dispatch")
 class AddToCartAPIView(APIView):
     """Adding to cart API"""
     permission_classes = [permissions.AllowAny]
@@ -141,17 +173,34 @@ class AddToCartAPIView(APIView):
     item_serializer = s.ItemSerializer
 
     def post(self, request, *args, **kwargs) -> HttpResponse:
+
         slug = request.data.get("slug", None) or kwargs.get('slug', None)
         quantity = request.data.get("quantity", None) or kwargs.get('quantity', None)
         color = request.data.get("color", None) or kwargs.get('color', None)
         size = request.data.get("size", None) or kwargs.get('size', None)
+        describe = request.data.get("describe", None) or kwargs.get('describe', None)
         user = _user(request)
+        try:
+            stock = int(quantity)
+        except ValueError:
+            stock = 1
+        except Exception as e:
+            stock = 1
         if slug is None:
             return Response({"details": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
+
         item = get_object_or_404(Item, slug=slug)
-        item.stock -= quantity
+        item.stock -= stock
         item.save()
-        order_item, created = CartItem.objects.get_or_create(item=item, user=user, ordered=False)
+        order_item, created = CartItem.objects.get_or_create(
+            item=item,
+            user=user,
+            ordered=False,
+            describe=describe,
+            chosen_color=color,
+            chosen_size=size
+        )
+
         order_qs = Order.objects.filter(user=user, ordered=False)
         if order_qs.exists():
             order = order_qs[0]
@@ -159,7 +208,7 @@ class AddToCartAPIView(APIView):
                 order_item.quantity += 1
                 order_item.save()
             else:
-                order_item.quantity = quantity
+                order_item.quantity = stock
                 order.items.add(order_item)
             return Response({
                 "details": f"{item.title} quantity updated",
@@ -170,7 +219,7 @@ class AddToCartAPIView(APIView):
         else:
             ordered_date = timezone.now()
             order = Order.objects.create(user=user, ordered_date=ordered_date, ref_code=create_ref_code())
-            order_item.quantity = quantity
+            order_item.quantity = stock
             order_item.save()
             order.items.add(order_item)
             return Response({
@@ -181,13 +230,13 @@ class AddToCartAPIView(APIView):
             }, status=status.HTTP_200_OK)
 
 
-@method_decorator(csrf_protect, name="dispatch")
+@method_decorator(csrf_exempt, name="dispatch")
 class DeleteItemFromCartView(APIView):
     """
     - Api that provide functionality to delete item from the cart
     - User must be authenticated
     """
-    permission_classes = [permissions.IsAuthenticated, ]
+    permission_classes = [permissions.AllowAny, ]
 
     def post(self, request, format=None, *args, **kwargs):
         user = _user(request)
@@ -243,13 +292,13 @@ class DeleteItemFromCartView(APIView):
             )
 
 
-@method_decorator(csrf_protect, name="dispatch")
+@method_decorator(csrf_exempt, name="dispatch")
 class ReduceItemQuantityView(APIView):
     """
     - Api that provide functionality to reduce item from the cart by 1
     - User must be authenticated
     """
-    permission_classes = [permissions.IsAuthenticated, ]
+    permission_classes = [permissions.AllowAny, ]
 
     def post(self, request, format=None, *args, **kwargs):
         slug = request.data.get("slug", None) or kwargs.get('slug', None)
@@ -299,9 +348,9 @@ class ReduceItemQuantityView(APIView):
             return Response(response_obj, status=status.HTTP_200_OK)
 
 
-@method_decorator(csrf_protect, name="dispatch")
+@method_decorator(csrf_exempt, name="dispatch")
 class AddItemQuantityAPIView(APIView):
-    permission_classes = [permissions.IsAuthenticated, ]
+    permission_classes = [permissions.AllowAny, ]
 
     def post(self, request, format=None, *args, **kwargs):
         slug = self.request.data.get("slug", None) or kwargs.get('slug', None)
@@ -339,6 +388,7 @@ class AddItemQuantityAPIView(APIView):
             }, status=status.HTTP_200_OK)
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class OrderDetailView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = s.OrderSerializer
@@ -353,27 +403,40 @@ class OrderDetailView(APIView):
             except ObjectDoesNotExist:
                 order = None
                 return Response(None, status=status.HTTP_200_OK)
-            return Response(self.serializer_class(order, many=False, context={'request': self.request}).data, status=status.HTTP_200_OK)
+            return Response(self.serializer_class(order, many=False, context={'request': self.request}).data,
+                            status=status.HTTP_200_OK)
         return Response({"order": None}, status=status.HTTP_200_OK)
 
+    def post(self, *args, **kwargs):
+        ref_code = self.request.data.get('ref_code', None)
+        if not ref_code:
+            return Response(None, status=status.HTTP_200_OK)
+        try:
+            order = Order.objects.get(ref_code=ref_code)
+        except ObjectDoesNotExist:
+            return Response(None, status=status.HTTP_200_OK)
+        return Response(self.serializer_class(order, many=False, context={'request': self.request}).data,
+                        status=status.HTTP_200_OK)
 
+
+@method_decorator(csrf_exempt, name="dispatch")
 class CompletedOrderView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = s.OrderSerializer
 
     def get_queryset(self):
         user = _user(self.request)
-        order = Order.objects.all()
+        order = Order.objects.filter(user=user, ordered=True)
         return order
 
 
-@method_decorator(csrf_protect, name="dispatch")
+@method_decorator(csrf_exempt, name="dispatch")
 class AddCouponView(APIView):
     """
     - Api that adds a coupon to the  order and reduces the amount charged with the value of the coupon
     - User must be authenticated
     """
-    permission_classes = [permissions.IsAuthenticated, ]
+    permission_classes = [permissions.AllowAny, ]
 
     def post(self, request, format=None, *args, **kwargs):
         user = _user(request)
@@ -403,6 +466,7 @@ class AddCouponView(APIView):
         )
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class RetrieveAddress(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -422,6 +486,7 @@ class RetrieveAddress(APIView):
             )
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class CreateAddressView(APIView):
     permission_classes = [permissions.AllowAny, ]
     serializer_class = s.AddressSerializer
@@ -453,7 +518,6 @@ class CreateAddressView(APIView):
                 "order": s.OrderSerializer(order, context={"request": request}).data,
             }, status=status.HTTP_200_OK)
         else:
-            print(serializer.errors)
             return Response({
                 "details": serializer.errors,
                 "address": None,
@@ -482,9 +546,9 @@ class CreateAddressView(APIView):
         return self.create_address(request)
 
 
-@method_decorator(csrf_protect, name="dispatch")
+@method_decorator(csrf_exempt, name="dispatch")
 class CrudShippingAddrView(APIView):
-    permission_classes = [permissions.IsAuthenticated, ]
+    permission_classes = [permissions.AllowAny, ]
 
     def get_address(self, *args, **kwargs):
         user = _user(self.request)
@@ -511,7 +575,8 @@ class CrudShippingAddrView(APIView):
                 else:
                     add._default = False
                     add.save()
-            serializer = s.AddressSerializer(instance=address, data=data, many=False, partial=True, context={'request': self.request})
+            serializer = s.AddressSerializer(instance=address, data=data, many=False, partial=True,
+                                             context={'request': self.request})
             if serializer.is_valid():
                 serializer.save()
                 serialized_addrs = s.AddressSerializer(self.get_address(), many=True)
@@ -532,7 +597,8 @@ class CrudShippingAddrView(APIView):
                 "address": serialized_addrs.data
             }, status=status.HTTP_200_OK)
         if create:
-            serializer = s.AddressSerializer(initial={'country': 'KE'}, data=data, many=False, context={'request': self.request})
+            serializer = s.AddressSerializer(initial={'country': 'KE'}, data=data, many=False,
+                                             context={'request': self.request})
             if serializer.is_valid():
                 serializer.save()
                 serialized_addrs = s.AddressSerializer(self.get_address(), many=True)
@@ -546,44 +612,398 @@ class CrudShippingAddrView(APIView):
         return Response({}, status=status.HTTP_200_OK)
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class MpesaPay(APIView):
     permission_classes = [permissions.AllowAny, ]
 
     def post(self, request, format=None, *args, **kwargs):
+        print(request.data)
         pay_id = request.data.get("pay_id")
         amount = request.data.get("amount")
-
+        shipping_charge = request.data.get("shipping_charge")
         user = _user(request)
+        try:
+            shipping_charges = ShippingLocationCharges.objects.get(id=shipping_charge)
+        except ShippingLocationCharges.DoesNotExist:
+            return Response({'detail': "Wrong shipping charge received."}, status=status.HTTP_400_BAD_REQUEST)
+        mpesa_no = validate_phone_number(request.data["mpesa_number"])
+        if not mpesa_no:
+            return Response({'detail': "Enter a valid phone number format."}, status=status.HTTP_400_BAD_REQUEST)
         try:
             order = Order.objects.get(user=user, ordered=False)
         except Order.DoesNotExist:
-            return Response({
-                "order": None,
-                'details': "Order payment was done"
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': "Order payment was done"}, status=status.HTTP_400_BAD_REQUEST)
         total = order.get_total
-        if amount != total:
-            return Response({
-                "order": s.OrderSerializer(order, context={"request": request}).data,
-                'details': "Amount discrepancy. Payment failed"
-            }, status=status.HTTP_400_BAD_REQUEST)
-        payment = Payment.objects.create(
-            user=user,
-            stripe_charge_id=pay_id,
-            amount=amount
-        )
-        order.payment = payment
+        if amount < total:
+            return Response({'detail': "Amount discrepancy. Payment failed"}, status=status.HTTP_400_BAD_REQUEST)
+        amount_shipping = shipping_charges.charge_per_kg
+        order.shipping_charges = shipping_charges
         order_items = order.items.all()
         order_items.update(ordered=True)
         for item in order_items:
             qty = item.quantity
             if item.item.stock >= qty:
+                # TODO: calculate the amount of Kgs of item and get the actual shipping charges
+                # TODO: And this should be done in the save method to give user accurate amount before paying.
                 item.item.stock -= qty
             item.item.save()
             item.save()
+
+        payment = Payment.objects.create(
+            user=user,
+            stripe_charge_id=pay_id,
+            amount=amount + amount_shipping,
+            mpesa_no=mpesa_no
+        )
+        order.payment = payment
         order.ordered = True
         order.save()
         return Response({
             "order": s.OrderSerializer(order, context={"request": request}).data,
-            'details': "Successfully transacted through Mpesa"
+            'detail': "Successfully transacted through Mpesa"
         }, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class PurchaseWithInstallMentAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, format=None, *args, **kwargs):
+        return Response(self.request.data, status=status.HTTP_200_OK)
+
+    def post(self, format=None, *args, **kwargs):
+        item_id = self.request.data['item']["id"]
+        payment_period = self.request.data['payment_period']
+        installment_obj = ItemInstallmentDetail.objects.select_related('item').get(id=self.request.data['id'])
+        user = _user(self.request)
+        # Try to get all UserInstallmentPayDetail without amount_paid, with (same item)
+        # installment_item.item.id is item_id
+        user_payment_detail = UserInstallmentPayDetail.objects.filter(
+            Q(amount_paid=None) | Q(amount_paid=0),
+            user=user,
+            installment_item__item_id=item_id,
+        )
+        # If it exists, either many or one
+        if user_payment_detail.exists():
+            # Filter with period and get the one that matches the period
+            response = user_payment_detail.filter(installment_item__payment_period=payment_period)
+            if response.exists():
+                # If that exists, delete the rest with different payment periods say 1, 3, 4 e.t.c excluding 2
+                # Return that with payment period of 2, which is payment_detail above, otherwise we have nothing
+                # to delete
+                user_payment_detail.exclude(pk__in=response).delete()
+                response = response[0]
+            else:
+                response = self.create_user_installment_detail(installment_obj)
+                user_payment_detail.exclude(pk=response.id).delete()
+        else:
+            # If we don't have any user_payment_detail with item (meaning it's new in the existing qs)
+            # we create one with user=user, item_installment_id=item_installment_id
+            response = self.create_user_installment_detail(installment_obj)
+        data = s.UserInstallmentPayDetailSerializer(instance=response, many=False, context={'request': self.request}).data
+        return Response(data, status=status.HTTP_200_OK)
+
+    def create_user_installment_detail(self, installment_obj):
+        user = _user(self.request)
+        return UserInstallmentPayDetail.objects.create(
+            user=user,
+            installment_item=installment_obj,
+            required_period=installment_obj.payment_period
+        )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class PurchaseInstallMentProfileAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, format=None, *args, **kwargs):
+        try:
+            instance = UserInstallmentPayDetail.objects.get(pk=request.data['id'])
+        except UserInstallmentPayDetail.DoesNotExist:
+            return Response({
+                'detail': f'Purchase profile does not exist. Probably deleted.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        data = s.UserInstallmentPayDetailSerializer(instance=instance, many=False, context={'request': self.request}).data
+        return Response(data, status=status.HTTP_200_OK)
+
+    def put(self, request, format=None, *args, **kwargs):
+        profile_id = request.data.get('profile_id', None)
+        profile = get_object_or_404(UserInstallmentPayDetail, pk=profile_id)
+        data = request.data
+        updated = False  # flag to track if the profile has been updated
+
+        if data.get('selected_shipping_charges', None) is not None:
+            profile.selected_shipping_charges = ShippingCharge.objects.get(id=data['id'])
+            updated = True
+        if data.get('address', None) is not None and data.get('create_address', None) is None:
+            profile.selected_address = Address.objects.get(id=data['id'])
+            updated = True
+        if data.get('mpesa', None) is not None:
+            profile.mpesa_no = data['mpesa_no']
+            updated = True
+        if data.get('create_address', None) is not None:
+            del data['create_address']
+            del data['profile_id']
+            data['user'] = _user(request)
+            addr = Address.objects.create(**data)
+            profile.selected_address = addr
+            updated = True
+
+        if updated:
+            profile.save()
+            data = s.UserInstallmentPayDetailSerializer(
+                instance=profile,
+                many=False,
+                context={'request': self.request}
+            ).data
+            return Response(data, status=status.HTTP_200_OK)
+        return Response({'details': "Failed to update purchase profile"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # def put(self, request, format=None, *args, **kwargs):
+    #     profile_id = request.data.get('profile_id', None)
+    #     profile = get_object_or_404(UserInstallmentPayDetail, pk=profile_id)
+    #     data = request.data
+    #     if data.get('selected_shipping_charges', None) is not None:
+    #         profile.selected_shipping_charges = ShippingCharge.objects.get(id=data['id'])
+    #         profile.save()
+    #         data = s.UserInstallmentPayDetailSerializer(instance=profile, many=False, context={'request': self.request}).data
+    #     if data.get('address', None) is not None and data.get('create_address', None) is None:
+    #         profile.selected_address = Address.objects.get(id=data['id'])
+    #         profile.save()
+    #         data = s.UserInstallmentPayDetailSerializer(instance=profile, many=False, context={'request': self.request}).data
+    #     if data.get('mpesa', None) is not None:
+    #         profile.mpesa_no = data['mpesa_no']
+    #         profile.save()
+    #         data = s.UserInstallmentPayDetailSerializer(instance=profile, many=False, context={'request': self.request}).data
+    #     if data.get('create_address', None) is not None:
+    #         del data['create_address']
+    #         del data['profile_id']
+    #         addr = Address.objects.create(**data)
+    #         profile.selected_address = addr
+    #         profile.save()
+    #         data = s.UserInstallmentPayDetailSerializer(instance=profile, many=False, context={'request': self.request}).data
+    #     return Response(data, status=status.HTTP_200_OK)
+
+
+# from datetime import timedelta
+# from rest_framework import status
+from rest_framework.generics import CreateAPIView
+
+
+# from rest_framework.response import Response
+# from myapp.models import ItemInstallmentDetail, UserInstallmentPayDetail
+@method_decorator(csrf_exempt, name="dispatch")
+class CompleteInstallmentPayAPIView(APIView):
+    permission_classes = [permissions.AllowAny, ]
+
+    def post(self, format=None, *args, **kwargs):
+        data = self.request.data
+        shipping = data.get("selected_shipping_charges", None)
+        next_pay = data.get("next_payment_amount", None)
+
+        # Getting the current UserInstallmentPayDetail using id
+        purchase_profile = get_object_or_404(UserInstallmentPayDetail, id=data.get('id', None))
+        if purchase_profile.completed:
+            return self.payment_completed()
+
+        # TODO: Make payment through MPESA API and return the amount paid
+        # The amount (mpesa_pay_amount) should be received from MPESA API Endpoint
+        mpesa_pay_amount = data.get('mpesa_pay_amount')
+
+        # Calculate the remaining balance, taking into account the shipping charges
+        remaining_balance = purchase_profile.installment_item.total_cost - purchase_profile.amount_paid - float(shipping["shipping_cost"])
+
+        # If the amount paid is less than the required deposit + shipping charge, return an error response
+        if not purchase_profile.payment_due_date or purchase_profile.payment_due_date is None:
+            deposit = float(purchase_profile.installment_item.deposit_amount)
+            if mpesa_pay_amount < (deposit + remaining_balance):
+                return self.less_amount_paid(mpesa_pay_amount, deposit)
+
+        # Update the amount paid and remaining balance
+        previous_amount = purchase_profile.amount_paid
+        purchase_profile.amount_paid += mpesa_pay_amount
+        purchase_profile.remaining_balance = remaining_balance
+
+        # Update the payment_due_date and next_amount_to_pay
+        if not purchase_profile.payment_due_date or purchase_profile.payment_due_date is None:
+            purchase_profile.payment_due_date = timezone.now() + purchase_profile.installment_item.payment_period
+        purchase_profile.next_amount_to_pay = max(remaining_balance, float(next_pay or 0))
+
+        # If the amount paid and shipping charges sum up to the total cost, mark the payment as completed
+        if float(purchase_profile.amount_paid) + float(shipping["shipping_cost"]) >= purchase_profile.installment_item.total_cost:
+            purchase_profile.completed = True
+
+        # Save the installment payment detail
+        purchase_profile.save()
+
+        serializer = s.UserInstallmentPayDetailSerializer(
+            purchase_profile,
+            many=False,
+            context={'request': self.request}
+        )
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def less_amount_paid(self, amount, deposit):
+        return Response({
+            'detail': f'The amount received ({amount}) is less than the REQUIRED deposit ({deposit})'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    def payment_completed(self):
+        return Response({
+            'detail': "This order payment was completed."
+        }, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class CompleteInstallmentPayAPIVie(APIView):
+    permission_classes = [permissions.AllowAny, ]
+
+    def post(self, format=None, *args, **kwargs):
+        data = self.request.data
+        shipping = data.get("selected_shipping_charges", None)
+        next_pay = data.get("next_payment_amount", None)
+
+        # Getting the current UserInstallmentPayDetail using id
+        purchase_profile = get_object_or_404(UserInstallmentPayDetail, id=data.get('id', None))
+        if purchase_profile.completed:
+            return self.payment_completed()
+        # TODO:Make payment through MPESA API an return the amount paid
+        # The amount (mpesa_pay_amount) should be received from MPESA API Endpoint
+        mpesa_pay_amount = data.get('mpesa_pay_amount')
+
+        # Track payment_due_date is NOT present, i.e. is FIRST TIME.
+        # Add shipping & deposit then compare with the amount pay.
+        if not purchase_profile.payment_due_date or purchase_profile.payment_due_date is None:
+            shipping_charge = float(shipping["shipping_cost"])
+            deposit = float(purchase_profile.installment_item.deposit_amount)
+            if mpesa_pay_amount < (deposit + shipping_charge):
+                #  If mpesa_pay_amount is LESS than deposit + shipping_charge Return response with those details
+                return self.less_amount_paid(mpesa_pay_amount, deposit)
+            purchase_profile.amount_paid = mpesa_pay_amount
+
+        # If we have payment_due_date, i.e. is NOT First time
+        # We have to check the dates and amount paid and remaining balance
+        if purchase_profile.payment_due_date:
+            previous_amount = purchase_profile.amount_paid
+            # If the amount paid and the previous amount is greater than remaining_balance
+            if (mpesa_pay_amount + previous_amount) > purchase_profile.remaining_balance:
+                return Response({
+                    'detail': f"Payment received ({mpesa_pay_amount}) is excess."
+                }, status=status.HTTP_200_OK)
+            purchase_profile.amount_paid = previous_amount + mpesa_pay_amount
+
+        if (previous_amount + mpesa_pay_amount) >= (shipping + purchase_profile.installment_item.total_cost):
+            purchase_profile.completed = True
+
+        # Save the installment payment detail
+        purchase_profile.save()
+        serializer = s.UserInstallmentPayDetailSerializer(
+            purchase_profile,
+            many=False,
+            context={'request': self.request}
+        )
+        return Response({
+            'detail': "Payment Received. We will email you the details of your order. Alternatively, you can view your profile"
+        }, status=status.HTTP_200_OK)
+
+        def less_amount_paid(self, amount, deposit):
+            return Response({
+                'detail': f'The amount received ({amount}) is less than the REQUIRED deposit ({deposit})'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        def payment_completed(self):
+            return Response({
+                'detail': "This order payment was completed."
+            }, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class CreateItemReviewAPIView(APIView):
+    permission_classes = [permissions.AllowAny, ]
+    register_serializer_class = RegisterSerializer
+
+    def post(self, request, format=None, *args, **kwargs):
+        data = request.data
+        email = data.get('email', None)
+        name = data.get('name', None)
+        product_id = data.get('product_id', None)
+        comment = data.get('comment', None)
+        save = data.get('save', None)
+        ratings = data.get('ratings', None)
+        if not is_valid_form([email, name, product_id, comment, save, ratings]):
+            return Response({
+                "detail": "Ensure the required fields are filled in."
+            }, status=status.HTTP_400_BAD_REQUEST)
+        item = Item.objects.get(id=product_id)
+        user = _user(request)
+        if user.is_authenticated:
+            email = user.email
+        else:
+            if save == 'on':
+                serializer = self.register_serializer_class({
+                    'email': email,
+                    'username': '',
+                    'password1': name,
+                    'password2': name
+                }, context={"request": request})
+                if serializer.is_valid():
+                    serializer.save(request)
+                else:
+                    pass
+        item_review = ItemReview.objects.create(
+            email=email,
+            name=name,
+            item=item,
+            comment=comment,
+            ratings=ratings
+        )
+        item.rating_count.add(item_review)
+        item.save()
+        serializer = s.ItemReviewSerializer(item_review, many=False, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class GetUserInstallmentDetails(APIView):
+    permission_classes = [permissions.AllowAny, ]
+    serializer_class = s.UserInstallmentPayDetailSerializer
+
+    def post(self, format=None, *args, **kwargs):
+        user = _user(self.request)
+        user_installments = UserInstallmentPayDetail.objects.filter(user=user)
+        serializer = self.serializer_class(user_installments, many=True, context={"request": self.request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class GetMessagesAPIView(APIView):
+    permission_classes = [permissions.AllowAny, ]
+
+    def get(self, format=None, *args, **kwargs):
+        user = _user(self.request)
+        if not user:
+            user = None
+        queryset = Notification.objects.for_user_or_general(user)
+        serializer = s.NotificationSerializer(queryset, many=True, context={'request': self.request})
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, format=None, *args, **kwargs):
+        user = _user(self.request)
+        if not user.is_authenticated:
+            return Response({"detail": "Unauthenticated user is not Allowed!"}, status=status.HTTP_200_OK)
+        queryset = Notification.objects.filter(user=user)
+        if queryset.exists():
+            for notification in queryset:
+                notification.mark_viewed()
+        queryset = Notification.objects.for_user_or_general(user)
+        serializer = s.NotificationSerializer(queryset, many=True, context={'request': self.request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ShippingAddressView(generics.RetrieveAPIView):
+    permission_classes = [permissions.AllowAny, ]
+    queryset = Address.objects.all()
+    serializer_class = s.AddressSerializer
+    lookup_field = "pk"

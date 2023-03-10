@@ -309,45 +309,6 @@ h6 {
 
 
 /*--------------------------------------------------------------
-# container
---------------------------------------------------------------*/
-
-@media (min-width: 500px) {
-    .container-sm,
-    .container {
-        max-width: 100% !important;
-    }
-}
-
-@media (min-width: 768px) {
-    .container-md,
-    .container-sm,
-    .container {
-        max-width: 100% !important;
-    }
-}
-
-@media (min-width: 992px) {
-    .container-lg,
-    .container-md,
-    .container-sm,
-    .container {
-        max-width: 100% !important;
-    }
-}
-
-@media (min-width: 1280px) {
-    .container-xl,
-    .container-lg,
-    .container-md,
-    .container-sm,
-    .container {
-        max-width: 1280px !important;
-    }
-}
-
-
-/*--------------------------------------------------------------
 # Sections & Section Header
 --------------------------------------------------------------*/
 

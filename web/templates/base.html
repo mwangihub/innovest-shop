@@ -4,28 +4,37 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title> Innovest |    {% block title %} Python Web Development Services {% endblock title %} </title>
+    <title> Innovest | {% block title %} Python Web Development Services {% endblock title %} </title>
 
-    <meta name="description" content="">
+    <meta name="description"
+          content="Innovest online shop has all products you can ship to your location.
+          Discover the latest trending fashions with vast electronics accessories. From blazers,
+          leather shoes, trending versace. Shop the latest trends, with special offers.">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="shortcut icon" href="{% static 'favicons/favicon.ico' %}">
-    {% comment %}
-        <script src="https://accounts.google.com/gsi/client" async defer="defer"></script> {% endcomment %}
-    <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
-    <script src="{% static 'vendor/styles/bootstrap/js/bootstrap.bundle.js' %}"></script>
-    <link rel="manifest" href="{% static 'vendor/json/shop/manifest.json' %}"/>
+    <link href="{% static 'vendor/styles/fonts/googleapis.fonts.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/styles/animate.css/animate.min.css' %}" rel="stylesheet">
     <link href="{% static 'vendor/styles/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
     <link href="{% static 'vendor/styles/bootstrap-icons/bootstrap-icons.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/styles/boxicons/css/boxicons.min.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/styles/glightbox/css/glightbox.min.css' %}" rel="stylesheet">
     <link href="{% static 'vendor/styles/remixicon/remixicon.css' %}" rel="stylesheet">
     <link href="{% static 'vendor/styles/swiper/swiper-bundle.min.css' %}" rel="stylesheet">
-    <link href="{% static 'vendor/css/main.css' %}" rel="stylesheet">
-    <script defer="defer" src="{% static 'vendor/js/masonry.js' %}"></script>
-    <script defer="defer" src="{% static 'vendor/js/main.js' %}"></script>
+
+    <link href="{% static 'vendor/css/theme.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/css/products.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/css/test_toast.css' %}" rel="stylesheet">
+
+    <script defer="defer" src="{% static 'vendor/styles/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script defer="defer" src="{% static 'vendor/styles/glightbox/js/glightbox.min.js' %}"></script>
+    <script defer="defer" src="{% static 'vendor/styles/swiper/swiper-bundle.min.js' %}"></script>
     {% block headJS %} {% endblock headJS %}
     {% block stylesheet %} {% endblock stylesheet %}
 </head>
 <body>
 
 {% block body %} {% endblock body %}
+
+
 </body>
 </html>

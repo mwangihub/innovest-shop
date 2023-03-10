@@ -5,6 +5,7 @@ from django.http import HttpResponse
 # Create your views here.
 from core.methods import app_active_check
 from user.models import DebugFrontEnd
+from shop.tasks import shop_task_one
 
 
 class ShopTemplateView(TemplateView):
@@ -16,7 +17,9 @@ class ShopTemplateView(TemplateView):
         # active = app_active_check(self.app_name)
         # if active:
         #     return redirect("/")
+        # shop_task_one.delay()
         domain = f"{request.scheme}://{request.get_host()}"
+        pathname = request.get_host()
         to_debug = ''
         try:
             debug = DebugFrontEnd.objects.get(project__alias_name='shop')
@@ -27,7 +30,9 @@ class ShopTemplateView(TemplateView):
         context = {
             'title': "welcome to Innovest shop",
             'domain': domain,
-            'debug': to_debug
+            'debug': to_debug,
+            'pathname': pathname,
+            'scheme': request.scheme,
         }
         return render(request, self.template_name, context)
 

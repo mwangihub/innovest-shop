@@ -4,7 +4,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.shortcuts import render
 
-import core.UrlsViewSiteMap
+import core.sitemaps
 import shop.sitemaps
 from shop.views import ShopTemplateView
 from job.views import JobTemplateView
@@ -16,15 +16,15 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.contrib.sitemaps.views import sitemap
 
 sitemaps = {
-    "static": core.UrlsViewSiteMap.StaticViewSitemap,
+    "static": core.sitemaps.StaticViewSitemap,
 }
 
 urlpatterns = [
 
     path("auth/", include("user.urls")),
-    path("shop/", ShopTemplateView.as_view(), name="shop"),
+    path("", ShopTemplateView.as_view(), name="shop"),
     path("job/", JobTemplateView.as_view(), name="job"),
-    path("", HomeTemplateView.as_view(), name="home"),
+    # path("", HomeTemplateView.as_view(), name="home"),
     # path("404/", custom_page_not_found),
     # path("500/", custom_server_error),
     path("sitemap.xml", sitemap, {'sitemaps': sitemaps}, name='innovest_sitemap'),

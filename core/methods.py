@@ -20,7 +20,8 @@ def get_rendered_html(template_name, context={}):
 
 
 # Exported methods
-def send_email(subject, html_content=None, text_content=None, from_email=None, recipients=[], attachments=[], bcc=[], cc=[]):
+def send_email(subject, html_content=None, text_content=None, from_email=None, recipients=[], attachments=[], bcc=[],
+               cc=[]):
     if not from_email:
         from_email = settings.DEFAULT_FROM_EMAIL
     if not text_content:
@@ -45,9 +46,13 @@ def send_mass_mail(data_list):
 
 
 def _user(request=None):
+    """
+    Get use base on Development mode. If settings.DEV_MODE return existing user
+    for the purpose of development.
+    """
     if not settings.DEV_MODE:
         return request.user
-    return User.objects.get(email="pmwassini@gmail.com")
+    return User.objects.get(email="petermwangi@gmail.com")
 
 
 def app_active_check(name):

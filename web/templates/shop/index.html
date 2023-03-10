@@ -1,20 +1,26 @@
 {% extends 'base.html' %}
+{% load static %}
+{% block title %} Mt. Kenya Innovest shop project {% endblock title %}
+{% block headJS %}
+    <script defer="defer" src="{% static 'vendor/js/shop/main.4b4b5379.js' %}"></script>
+{% endblock headJS %}
 
- {% load static %} 
-
- {% block title %} Mt. Kenya Innovest shop project {% endblock title %}
- {% block headJS %}
-
-<script defer="defer" src="{% static 'vendor/js/shop/main.628f4d88.js' %}"></script>
-
-{% endblock headJS %} {% block stylesheet %}
-
-<link href="{% static 'vendor/css/shop.css' %}" rel="stylesheet"> 
-
-{% endblock stylesheet %} 
+{% block stylesheet %}{% endblock stylesheet %}
 
 {% block body %}
-
-<div id="root" data-host="{{ domain }}" data-check="{{debug}}"></div>
-
+    <div id="root"></div>
+    <Script>
+        function setAttributes(element, attributes) {
+            Object.keys(attributes).forEach(attr => {
+                element.setAttribute(attr, attributes[attr]);
+            });
+        }
+        const attributes = {
+            'data-host' : "{{ domain }}",
+            "data-scheme": "{{ scheme }}",
+            "data-pathname": "{{ pathname }}",
+        };
+        const root = document.querySelector('#root');
+        setAttributes(root, attributes);
+    </Script>
 {% endblock body %}
