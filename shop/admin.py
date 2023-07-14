@@ -2,46 +2,6 @@ from . import models as db
 from django.contrib import admin
 
 
-def mark_viewed(modeladmin, request, queryset):
-    queryset.update(viewed=True)
-
-
-def mark_not_viewed(modeladmin, request, queryset):
-    queryset.update(viewed=False)
-
-
-@admin.register(db.Notification)
-class NotificationAdmin(admin.ModelAdmin):
-    list_display = ("timestamp", "_main", "title", "level", "viewed", "is_general", "id")
-    # list_select_related = ("user", "user__profile__main_character", "user__profile__state")
-    list_filter = ("level", "timestamp",)  # "user__profile__state",# ('user__profile__main_character', admin.RelatedOnlyFieldListFilter),)
-    ordering = ("-timestamp",)
-    actions = [mark_viewed, mark_not_viewed, ]
-
-    # actions = [mark_viewed]
-    # search_fields = ["user__username", "user__profile__main_character__character_name"]
-
-    def _main(self, obj):
-        try:
-            return obj.user.profile.main_character
-        except AttributeError:
-            return obj
-
-    _main.admin_order_field = "user__profile__main_character__character_name"
-
-    def _state(self, obj):
-        try:
-            return obj.user.profile.state
-        except:
-            return obj.user
-
-    _state.admin_order_field = "user__profile__state__name"
-
-    # def has_change_permission(self, request, obj=None) -> bool:
-    #     return False
-
-    # def has_add_permission(self, request) -> bool:
-    #     return False
 
 
 # Register your models here.
@@ -99,14 +59,17 @@ class UserInstallmentPayDetailAdmin(admin.ModelAdmin):
 
 
 class ShippingChargeAdmin(admin.ModelAdmin):
-    list_display = ['item', "area_code", "shipping_cost"]
-    list_filter = ['item', ]
+    list_display = ["town", "shipping_cost", 'item', ]
+    list_filter = ['town', ]
+
+class PaymentAdmin(admin.ModelAdmin):
+        list_display = ['id', ]
 
 
 admin.site.register(db.GenericForeignKeyModel, GenericForeignKeyModelAdmin)
 admin.site.register(db.ItemInstallmentDetail, ItemInstallmentDetailsAdmin)
 admin.site.register(db.UserInstallmentPayDetail, UserInstallmentPayDetailAdmin)
-admin.site.register(db.ShippingLocationCharges)
+# admin.site.register(db.ShippingLocationCharges)
 admin.site.register(db.Town)
 admin.site.register(db.ItemBrandName)
 admin.site.register(db.ShippingCharge, ShippingChargeAdmin)
@@ -128,7 +91,6 @@ admin.site.register(db.CartItem)
 admin.site.register(db.Order, OrderAdmin)
 admin.site.register(db.CustomerPurchaseProfile)
 admin.site.register(db.Address, AddressAdmin)
-admin.site.register(db.Payment)
+admin.site.register(db.Payment, PaymentAdmin)
 admin.site.register(db.Coupon)
 admin.site.register(db.Refund)
-admin.site.register(db.ItemSample)

@@ -7,3 +7,6 @@ class EcommerceConfig(AppConfig):
 
     def ready(self):
         import shop.signals  # noqa
+        from shop.signals import PostOrderOrdered
+        PostOrderOrdered.handle_post_order_ordered
+

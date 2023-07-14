@@ -1,8 +1,11 @@
-from django.contrib.auth import get_user_model
-from django_countries.serializer_fields import CountryField
+import datetime
+
+from django.utils import timezone
 from django_countries.serializers import CountryFieldMixin
 from rest_framework import serializers
 
+from api_auth.serializers import UserDetailsSerializer
+from core.methods import create_unique_code
 from shop.models import *
 
 User = get_user_model()
@@ -22,22 +25,10 @@ class TownSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class ShippingLocationChargesSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ShippingLocationCharges
-        fields = "__all__"
-
-
 class GenericForeignKeyModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = GenericForeignKeyModel
         fields = '__all__'
-
-
-class NotificationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Notification
-        fields = "__all__"
 
 
 class ItemSubCategorySerializer(serializers.ModelSerializer):
@@ -126,6 +117,8 @@ class ItemColorChoiceSerializer(serializers.ModelSerializer):
 
 
 class ShippingChargeSerializer(serializers.ModelSerializer):
+    town = TownSerializer(read_only=True)
+
     class Meta:
         model = ShippingCharge
         fields = "__all__"
@@ -159,7 +152,7 @@ class SimpleItemSerializer(serializers.ModelSerializer):
 
 
 class ItemInstallmentDetailSerializer(serializers.ModelSerializer):
-    item = SimpleItemSerializer()
+    item = SimpleItemSerializer(read_only=True)
 
     class Meta:
         model = ItemInstallmentDetail
@@ -251,6 +244,33 @@ class UserInstallmentPayDetailSerializer(serializers.ModelSerializer):
             if instance.remaining_balance <= 0:
                 instance.paid_for_period = instance.required_period
                 instance.completed = True
+                # Creating Order Instance
+                # Use celery to que this task
+                quantity = validated_data.get("size", None)
+                cart_item = CartItem.objects.create(
+                    item=instance.installment_item.item,
+                    user=instance.user,
+                    ordered=True,
+                    describe=validated_data.get("describe", None),
+                    chosen_color=validated_data.get("color", None),
+                    chosen_size=validated_data.get("size", None),
+                    quantity=quantity if quantity else 1,
+                )
+                ordered_date = timezone.now()
+                order = Order.objects.create(
+                    user=instance.user,
+                    ordered_date=ordered_date,
+                    ordered=True,
+                    ref_code=create_unique_code(),
+                    installment_item=instance.installment_item,
+                    shipping_address=instance.selected_address,
+                    billing_address=instance.selected_address,
+                    shipping_charges=instance.selected_shipping_charges,
+                    payment=validated_data.get("payment", None),
+                )
+                order.items.add(cart_item)
+                order.save()
+
         return super().update(instance, validated_data)
 
     def get_next_payment_amount(self, instance):
@@ -265,7 +285,7 @@ class UserInstallmentPayDetailSerializer(serializers.ModelSerializer):
         return data.data
 
     def get_shipping_charges(self, instance):
-        qs = ShippingCharge.objects.filter(item=instance.installment_item.item)
+        qs = ShippingCharge.objects.get_for_item(instance.installment_item.item)
         data = ShippingChargeSerializer(qs, many=True, read_only=True)
         return data.data
 
@@ -405,6 +425,7 @@ class ItemSerializer(serializers.ModelSerializer):
     delete_from_cart_url = serializers.URLField(source='get_delete_from_cart_url', read_only=True)
     reduce_qty_url = serializers.URLField(source='get_reduce_qty_url', read_only=True)
     add_qty_url = serializers.URLField(source='get_add_qty_url', read_only=True)
+    description_list = serializers.ListField(child=serializers.CharField())
 
     class Meta:
         model = Item
@@ -462,6 +483,7 @@ class ItemSerializer(serializers.ModelSerializer):
                     continue
                 except Exception as e:
                     continue
+
         return data
 
     def get_available_colors(self, obj):
@@ -490,14 +512,14 @@ class ItemSerializer(serializers.ModelSerializer):
         data = ItemInstallmentDetailSerializer(qs, many=True).data
         return data
 
-    # except Exception as e:
-    # return None
     def get_user_installment_pay_details(self, obj):
         if not obj.pay_with_installment:
             return None
-        user = _user(self.context['request'])
-        if user and user.is_authenticated:
-            return None
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            user = request.user
+        else:
+            user = None
         item_installment_detail = ItemInstallmentDetail.objects.select_related('item').filter(item=obj).first()
         if not item_installment_detail:
             return None
@@ -509,7 +531,8 @@ class ItemSerializer(serializers.ModelSerializer):
                 amount_paid=None
             ).earliest('created_at')
             if qs:
-                data = UserInstallmentPayDetailSerializer(qs, many=False, context=self.context).data
+                serializer = UserInstallmentPayDetailSerializer(qs, many=False, context={'request': request})
+                data = serializer.data
                 return data
         except UserInstallmentPayDetail.DoesNotExist:
             return None
@@ -556,15 +579,35 @@ class CouponSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class SimpleOrderSerializer(serializers.ModelSerializer):
+    items = CartItemSerializer(many=True)
+    billing_address = AddressSerializer(read_only=True)
+    shipping_charges = ShippingChargeSerializer(read_only=True)
+    order_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = "__all__"
+
+    def get_order_total(self, obj):
+        return obj.get_total
+
+
 class PaymentSerializer(serializers.ModelSerializer):
+    paying_user = serializers.SerializerMethodField()
+    orders = SimpleOrderSerializer(many=True, read_only=True)
+
     class Meta:
         model = Payment
         fields = "__all__"
 
+    def get_paying_user(self, obj):
+        return UserDetailsSerializer(instance=obj.user).data
+
 
 class TownLocationSerializer(serializers.Serializer):
     town = serializers.CharField()
-    locations = ShippingLocationChargesSerializer(many=True)
+    locations = ShippingChargeSerializer(many=True)
 
 
 # "start_date","ordered_date","ordered","shipping_address","billing_address",
@@ -613,88 +656,6 @@ class OrderSerializer(serializers.ModelSerializer):
         return obj.items.all().count()
 
     def get_shipping_options(self, obj):
-        towns = ShippingLocationCharges.objects.values('town__name').distinct()
-        towns_data = [{'town': town['town__name'],
-                       'locations': list(ShippingLocationCharges.objects.by_town(town['town__name']))} for town in towns]
-        serializer = TownLocationSerializer(towns_data, many=True)
+        qs = ShippingCharge.objects.get_no_item()
+        serializer = ShippingChargeSerializer(qs, many=True)
         return serializer.data
-
-    #
-    # def to_representation(self, instance):
-    #     """
-    #             This is to_represent method in ItemSerializer, of Item Model.
-    #             related_db field which ManyToManyField in Item model is populated with GenericForeignKeyModel model instances.
-    #             Both Item model and GenericForeignKeyModel model have a choice field called db_type,
-    #             and they use the same tuple called DB_TYPES as choice options.
-    #             Here, we compare if db_type field in Item model which returns a list of DB_TYPES and related_db field instances
-    #             if they have same list of DB_TYPES options and if not we alter related_db field, save and then update field.
-    #     """
-    #     data = super().to_representation(instance)
-    #     related_dbs = instance.related_db.all()
-    #     related_dbs_type = set(instance.db_type)
-    #     related_dbs_db_type = set(db.db_type for db in related_dbs)
-    #
-    #     if related_dbs_type != related_dbs_db_type:
-    #         # If NONE was selected in db_type in Item model, then set related_db to empty qs
-    #         if "NE" in related_dbs_type:
-    #             instance.related_db.set(GenericForeignKeyModel.objects.none())
-    #         else:
-    #             # Otherwise save add all GenericForeignKeyModel objects with the same db_type
-    #             related_objects = GenericForeignKeyModel.objects.filter(db_type__in=list(instance.db_type))
-    #             instance.related_db.set(related_objects)
-    #         instance.save()
-    #     if related_dbs.exists():
-    #         # If this Item Instance have related_db then dynamically add the fields base on related model
-    #         # stored in related_dbs
-    #         for db in instance.related_db.all():
-    #             # for loop is expensive operations
-    #             db_ = db.content_type.model_class()
-    #             # Get serializer class stored in  self.related_dbs = {'ItemSizeByMode': ItemSizeByModeSerializer,
-    #             #                             'ItemBrand': ItemBrandSerializer, }
-    #             serializer_cls = self.check_related_db(db_.__name__)
-    #             # Compare class names to get the correct Serializer class
-    #             # Carryout logic checks and inject extra fields
-    #             if serializer_cls.__name__ == "ItemColorChoiceSerializer":
-    #                 qs = ItemColorChoice.objects.filter(item=instance)
-    #                 values = serializer_cls(qs, many=True).data
-    #                 data['color_options'] = values
-    #             elif serializer_cls.__name__ == "ItemSizeByModeSerializer":
-    #                 # To ensure that SIZE_CHOICES is present
-    #                 data['size_choices'] = ItemSizeByMode.SIZE_CHOICES
-    #             elif serializer_cls.__name__ == "ItemSizeByNumberSerializer":
-    #                 data['size_choices'] = ItemSizeByNumber.SIZE_CHOICES
-    #             elif serializer_cls.__name__ == "ItemBrandSerializer":
-    #                 qs = ItemBrand.objects.filter(item=instance)
-    #                 data['brand_options'] = ItemBrandSerializer(qs, many=True).data
-    #     return data
-
-# def serialize_related_db1(data, instance):
-#     related_dbs = instance.related_db.all()
-#     related_dbs_dict = {
-#         'ItemSizeByMode': ItemSizeByModeSerializer,
-#         'ItemSizeByNumber': ItemSizeByNumberSerializer,
-#         'ItemColor': ItemColorSerializer,
-#         'ItemColorChoice': ItemColorChoiceSerializer,
-#         'ItemBrand': ItemBrandSerializer,
-#     }
-#     if related_dbs.exists():
-#         for db in related_dbs:
-#             # for loop is expensive operations
-#             db_ = db.content_type.model_class()
-#             try:
-#                 serializer_cls = related_dbs_dict[db_.__name__]
-#             except KeyError:
-#                 continue
-#             if serializer_cls.__name__ == "ItemColorChoiceSerializer":
-#                 qs = ItemColorChoice.objects.filter(item=instance)
-#                 values = serializer_cls(qs, many=True).data
-#                 data['color_options'] = values
-#             elif serializer_cls.__name__ == "ItemSizeByModeSerializer":
-#                 data['size_choices'] = ItemSizeByMode.SIZE_CHOICES
-#             elif serializer_cls.__name__ == "ItemSizeByNumberSerializer":
-#                 data['size_choices'] = ItemSizeByNumber.SIZE_CHOICES
-#             elif serializer_cls.__name__ == "ItemBrandSerializer":
-#                 qs = ItemBrand.objects.filter(item=instance)
-#                 data['brand_options'] = ItemBrandSerializer(qs, many=True).data
-#     return data
-#

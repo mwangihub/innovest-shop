@@ -1,3 +1,4 @@
+import json
 from importlib import import_module
 
 from django.conf import settings
@@ -22,6 +23,7 @@ from user.models import BuyerProfile, Project
 from core.methods import _user
 from django.contrib.sites.shortcuts import get_current_site
 from core.methods import send_mass_mail, send_email, get_rendered_html
+from shop.tasks import send_mass_email_task
 
 User = auth.get_user_model()
 
@@ -215,12 +217,20 @@ class RetrieveBuyerProfileView(APIView):
         user_ = user
         full_names = self.request.data.get('full_name', None)
         if full_names:
+            try:
+                first_name = full_names.split()[0]
+                last_name = full_names.split()[0]
+            except Exception as e:
+                print(e)
+                first_name = full_names
+                last_name = ""
             user_serializer = UserDetailsSerializer(instance=user, data={
-                "first_name": full_names.split()[0],
-                "last_name": full_names.split()[1]
+                "first_name": first_name,
+                "last_name": last_name
             }, partial=True, context={"request": self.request})
             if user_serializer.is_valid():
                 user_ = user_serializer.save()
+
         qs, created = BuyerProfile.objects.get_or_create(user=user_)
         qs.address = self.request.data.get('address', qs.address)
         qs.phone = self.request.data.get('phone', qs.phone)
@@ -228,7 +238,7 @@ class RetrieveBuyerProfileView(APIView):
         qs.gender = self.request.data.get('gender', qs.gender)
         qs.user = user
         profile_update = qs.save()
-        serializer = self.serializer_class(instance=profile_update, many=False, context={"request": self.request})
+        serializer = self.serializer_class(instance=profile_update, context={"request": self.request})
         return Response({
             "details": "Successfully updated profile.",
             'updated': True,
@@ -269,20 +279,21 @@ class InnovestUsersMessagesView(APIView):
     permission_classes = [permissions.AllowAny, ]
     serializer_class = serializers.InnovestMessagesSerializers
 
-    def send_mail_(self):
-        html_content = get_rendered_html("email/pminnovest/message.html", {"msg": self.request.data})
+    def _send_mail_(self):
         subject = self.request.data.get('subject', None)
         email = self.request.data.get('email', None)
-        send_email(
-            subject=email,
-            html_content=html_content,
-            from_email=settings.EMAIL_HOST_USER,
-            recipients=["pminnovest@gmail.com", ],
-        )
+        msg = {
+            'subject': f'{subject}',
+            'recipients': ["pminnovest@gmail.com", ],
+            'template': "email/innovest.html",
+            "json": json.dumps(self.request.data),
+            'context': {},
+        }
+        send_mass_email_task.delay([msg, ])
 
     def post(self, *args, **kwargs):
         serializer = self.serializer_class(data=self.request.data, context={'request': self.request})
-        self.send_mail_()
+        self._send_mail_()
         if serializer.is_valid():
             # serializer.save()
             return Response({

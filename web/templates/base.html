@@ -20,6 +20,7 @@
     <link href="{% static 'vendor/styles/glightbox/css/glightbox.min.css' %}" rel="stylesheet">
     <link href="{% static 'vendor/styles/remixicon/remixicon.css' %}" rel="stylesheet">
     <link href="{% static 'vendor/styles/swiper/swiper-bundle.min.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/styles/aos/aos.css' %}" rel="stylesheet">
 
     <link href="{% static 'vendor/css/theme.css' %}" rel="stylesheet">
     <link href="{% static 'vendor/css/products.css' %}" rel="stylesheet">
@@ -28,6 +29,21 @@
     <script defer="defer" src="{% static 'vendor/styles/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     <script defer="defer" src="{% static 'vendor/styles/glightbox/js/glightbox.min.js' %}"></script>
     <script defer="defer" src="{% static 'vendor/styles/swiper/swiper-bundle.min.js' %}"></script>
+    <script defer="defer" src="{% static 'vendor/styles/aos/aos.js' %}"></script>
+    <script>
+        window.addEventListener("load", (() => {
+            try {
+                AOS.init({
+                    duration: 800,
+                    easing: "ease-in-out",
+                    once: !0,
+                    mirror: !1
+                })
+            } catch (n) {
+                console.log(n)
+            }
+        }))
+    </script>
     {% block headJS %} {% endblock headJS %}
     {% block stylesheet %} {% endblock stylesheet %}
 </head>

@@ -7,20 +7,38 @@ from rest_framework import permissions, status
 from rest_framework.generics import CreateAPIView, UpdateAPIView, get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from core.methods import _user
+from core.methods import _user, create_unique_code
 from shop.models import *
 from . import serializers
+from .serializers import PaymentSerializer
 
 channel_layer = get_channel_layer()
 User = get_user_model()
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class UpdateUserInstallmentAPIView(APIView):
-    permission_classes = [permissions.AllowAny]
+class PaymentAPIView(APIView):
+    permission_classes = [permissions.AllowAny, ]
+    serializer_class = PaymentSerializer
 
-    def post(self, request, format=None, *args, **kwargs):
-        return Response({}, status=status.HTTP_200_OK)
+    def get(self, format=None, *args, **kwargs):
+        user = _user(self.request)
+        # billing_id = self.request.data.get('billing_id', None)
+        queryset = Payment.objects.filter(user=user)
+        serializer = PaymentSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, format=None):
+        user = _user(self.request)
+        billing_id = self.request.data.get('billing_id', None)
+        try:
+            queryset = Payment.objects.get(user=user, stripe_charge_id=billing_id)
+        except Payment.DoesNotExist:
+            return Response({
+                "detail": 'Billing detail does not exist.'
+            }, status=status.HTTP_404_NOT_FOUND)
+        serializer = PaymentSerializer(queryset)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class UserInstallmentPayDetailCreateAPIView(APIView):
@@ -51,10 +69,16 @@ class UserInstallmentPayDetailCreateAPIView(APIView):
 
     def patch(self, request, format=None):
         data = None
+        user = _user(request)
         pk = request.data.get("profile_id", None)
-        installment_pay_detail = get_object_or_404(UserInstallmentPayDetail, pk=pk)
+        try:
+            installment_pay_detail = UserInstallmentPayDetail.objects.get(id=pk)
+        except UserInstallmentPayDetail.DoesNotExist:
+            return Response({"detail": "User payment details not found"}, status=status.HTTP_404_NOT_FOUND)
+
         if request.data.get("amount_paid", None) is None:
-            if request.data.get("address", None):
+            # No Payment is made
+            if request.data.get("address", None) and not request.data.get("create_address", None):
                 address = get_object_or_404(Address, pk=request.data.get("id"))
                 data = {"selected_address": address}
 
@@ -65,10 +89,40 @@ class UserInstallmentPayDetailCreateAPIView(APIView):
             if request.data.get("mpesa", None):
                 mpesa_no = request.data.get("mpesa_no", None)
                 data = {"mpesa_no": mpesa_no}
+
+            if request.data.get("create_address", None) and request.data.get("address", None):
+                serializer = serializers.AddressSerializer(data=request.data, context={"request": request})
+                if serializer.is_valid():
+                    address = serializer.save()
+                    print(address)
+                    data = {"selected_address": address}
+
         else:
-            data = {"amount_paid": request.data.get("amount_paid", None)}
-            if request.data.get("mpesa_no", None):
-                data["mpesa_no"] = request.data.get("mpesa_no", None)
+            # User has made payment
+            amount_paid = request.data.get("amount_paid", None)
+            mpesa_no = request.data.get("mpesa_no", None)
+            pay_id = request.data.get("pay_id", None)
+            describe = request.data.get("describe", None)
+            color = request.data.get("color", None)
+            size = request.data.get("size", None)
+            payment = Payment.objects.create(
+                user=user,
+                stripe_charge_id=pay_id,
+                amount=amount_paid,
+                mpesa_no=mpesa_no,
+                shipping=f'For installment ({installment_pay_detail.selected_shipping_charges.town.name}) - {installment_pay_detail.selected_shipping_charges.shipping_cost}',
+                installment_item=f'Installment item: {installment_pay_detail.installment_item.item.title}, Period: {installment_pay_detail.installment_item.payment_period} Months'
+            )
+            data = {
+                "amount_paid": amount_paid,
+                "mpesa_no": mpesa_no,
+                "color": color,
+                "describe": describe,
+                "size": size,
+                "payment": payment,
+            }
+            # if mpesa_no:
+            #     data["mpesa_no"] = mpesa_no
         serializer = self.serializer_class(instance=installment_pay_detail, data=data, partial=True, context={"request": request})
         if serializer.is_valid():
             serializer.save(**data)

@@ -68,8 +68,8 @@ class RegisterView(CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save(self.request)
-        if allauth_settings.EMAIL_VERIFICATION != \
-                allauth_settings.EmailVerificationMethod.MANDATORY:
+
+        if allauth_settings.EMAIL_VERIFICATION != allauth_settings.EmailVerificationMethod.MANDATORY:
             if getattr(settings, 'REST_USE_JWT', False):
                 self.access_token, self.refresh_token = jwt_encode(user)
             else:
@@ -162,7 +162,7 @@ class SocialAccountListView(ListAPIView):
 class SocialAccountDisconnectView(GenericAPIView):
     """
     Disconnect SocialAccount from remote service for
-    the currently logged in user
+    the currently logged-in user
     """
     serializer_class = SocialConnectSerializer
     permission_classes = (IsAuthenticated,)

@@ -44,6 +44,22 @@ img {
     text-align: center;
 }
 
+.modal-title {
+    color: var(--color-default);
+}
+
+.hr-bold {
+    height: 2px;
+    border: medium none;
+    color: rgb(238, 238, 238);
+    background-color: rgb(0, 0, 0);
+}
+
+.div-between {
+    display: flex;
+    justify-content: space-between;
+}
+
 .disabled {
     pointer-events: none;
     opacity: 0.5;
@@ -52,6 +68,11 @@ img {
 .cursor-p {
     cursor: pointer !important;
 }
+
+
+/*--------------------------------------------------------------
+# innovest-picture
+--------------------------------------------------------------*/
 
 #innovest-picture {
     background-image: url("../img/logo_x.png");
@@ -62,20 +83,74 @@ img {
     border-radius: 5px;
 }
 
-
 #innovest-picture::before {
-	content: "";
-	background-color: rgba(9, 9, 9, 0.38);
-	position: absolute;
-	top: 0;
-	right: 0;
-	left: 0;
-	bottom: 0;
+    content: "";
+    background-color: rgba(9, 9, 9, 0.09);
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    bottom: 0;
 }
+
 #innovest-picture .banner {
     position: relative;
     z-index: 1;
     color: white;
+}
+
+
+/*--------------------------------------------------------------
+# card-address
+--------------------------------------------------------------*/
+
+.card-address {
+    width: 400px;
+    background: aliceblue;
+    border-radius: 18px;
+    border: none;
+}
+
+.card-address .card-child {
+    border: 3px solid blue;
+    border-radius: 16px;
+}
+
+.card-address .circle {
+    background-color: #ebdffb;
+    height: 50px;
+    width: 50px;
+    border-radius: 50%;
+    display: flex;
+    color: #9553ea;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+}
+
+.card-address .circle-2 {
+    background-color: #fbebdf;
+    height: 50px;
+    width: 50px;
+    border-radius: 50%;
+    display: flex;
+    color: #ea9253;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+}
+
+.card-address .circle-3 {
+    cursor: pointer;
+    background-color: blue;
+    height: 50px;
+    width: 50px;
+    border-radius: 50%;
+    display: flex;
+    color: #fff;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
 }
 
 
@@ -1037,6 +1112,95 @@ select.did-floating-select::-ms-expand {
 
 
 /*--------------------------------------------------------------
+# Hero-x Section
+--------------------------------------------------------------*/
+
+.hero-x {
+    margin-top: 100px;
+    width: 100%;
+    min-height: 100vh;
+    background: url("../img/hero-x-bg.jpg") top center;
+    background-size: cover;
+    position: relative;
+    padding: 120px 0;
+    z-index: 3;
+}
+
+@media (min-width: 1034px) {
+    .hero-x:after {
+        position: absolute;
+        content: "";
+        width: 40%;
+        background: var(--color-secondary);
+        top: 0;
+        bottom: 0;
+    }
+}
+
+.hero-x:before {
+    position: absolute;
+    content: "";
+    background: rgba(27, 47, 69, 0.6);
+    inset: 0;
+}
+
+@media (max-width: 1034px) {
+    .hero-x:before {
+        background: rgba(27, 47, 69, 0.7);
+    }
+}
+
+.hero-x .container {
+    z-index: 1;
+}
+
+@media (min-width: 1365px) {
+    .hero-x {
+        background-attachment: fixed;
+    }
+}
+
+.hero-x .btn-get-started:hover {
+    background: rgba(86, 184, 230, 0.8);
+}
+
+.hero-x .btn-watch-video {
+    font-size: 16px;
+    transition: 0.5s;
+    margin-left: 25px;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 600;
+}
+
+.hero-x .btn-watch-video i {
+    color: var(--color-primary);
+    font-size: 32px;
+    transition: 0.3s;
+    line-height: 0;
+    margin-right: 8px;
+}
+
+.hero-x .btn-watch-video:hover {
+    color: #fff;
+}
+
+.hero-x .btn-watch-video:hover i {
+    color: #82cbed;
+}
+
+@media (max-width: 640px) {
+    .hero-x h2 {
+        font-size: 36px;
+        line-height: 1;
+    }
+    .hero-x .btn-get-started,
+    .hero-x .btn-watch-video {
+        font-size: 13px;
+    }
+}
+
+
+/*--------------------------------------------------------------
 # Swiper override
 --------------------------------------------------------------*/
 
@@ -1075,18 +1239,22 @@ select.did-floating-select::-ms-expand {
 
 #hero .swiper-button-next,
 #hero .swiper-button-prev {
-    /* background: none; */
-    /* font-size: 30px; */
-    /* line-height: 0; */
+    display: none;
     width: 60px;
     height: 60px;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.31);
     border-radius: 50%;
     transition: 0.3s;
     color: rgba(255, 255, 255, 0.5);
-    /* display: flex; */
-    /* align-items: center; */
-    /* justify-content: center; */
+    transition: 0.25s;
+}
+
+#hero .swiper-button-next:hover,
+#hero .swiper-button-prev:hover {
+    color: #fff;
+    translate: scale(0.5px);
+    transform: scale(1.08);
+    background: rgba(0, 0, 0, 0.64);
 }
 
 #hero .swiper-button-next::after,
@@ -1098,6 +1266,7 @@ select.did-floating-select::-ms-expand {
 #hero .swiper {
     height: inherit;
     width: inherit;
+    background-color: #fff;
 }
 
 #hero .swiper-horizontal>.swiper-pagination-bullets {
@@ -1108,14 +1277,85 @@ select.did-floating-select::-ms-expand {
 }
 
 #hero .carousel-item {
-    background-size: cover;
+    background-size: auto;
     background-position: center;
     background-repeat: no-repeat;
 }
 
-#hero .carousel-item::before {
-    content: "";
-    background-color: rgba(30, 35, 40, 0.6);
+@media (min-width: 1034px) {
+    #hero .carousel-item:after {
+        position: absolute;
+        content: "";
+        width: 40%;
+        background: #040a84d6;
+        top: 0;
+        bottom: 0;
+    }
+    #hero .swiper-button-next,
+    #hero .swiper-button-prev {
+        display: flex;
+    }
+}
+
+#hero .carousel-item .container {
+    z-index: 2;
+}
+
+#hero .carousel-item h2 {
+    margin: 0;
+    font-size: 48px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #fff;
+    font-family: var(--font-secondary);
+}
+
+#hero .carousel-item blockquote {
+    color: #fff;
+    padding-left: 20px;
+    font-size: 15px;
+    font-family: var(--font-default);
+    border-left: 2px solid var(--color-primary);
+    margin: 40px 0;
+}
+
+#hero .carousel-item .btn-get-started {
+    font-family: var(--font-secondary);
+    font-weight: 500;
+    font-size: 15px;
+    letter-spacing: 1px;
+    display: inline-block;
+    padding: 12px 30px;
+    border-radius: 50px;
+    transition: 0.5s;
+    color: #fff;
+    background: var(--color-primary);
+}
+
+#hero .carousel-item .btn-get-started:hover {
+    background: rgba(86, 184, 230, 0.8);
+}
+
+@media (max-width: 1200px) {
+    #hero .container-cover:before {
+        position: absolute;
+        content: "";
+        background: rgba(27, 47, 69, 0.6);
+        inset: 0;
+    }
+}
+
+#hero .carousel-image-container {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    float: left;
+    width: 100%;
+    margin-right: -100%;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    transition: transform .6s ease-in-out;
 }
 
 #hero .carousel-container {
@@ -1124,14 +1364,17 @@ select.did-floating-select::-ms-expand {
     align-items: center;
     position: absolute;
     bottom: 0;
-    top: 70px;
-    left: 50px;
-    right: 50px;
+    top: 0;
+    left: 0;
+    width: 50%;
+    background-color: rgb(73, 81, 236);
+    overflow: hidden auto;
 }
 
-#hero .container {
+
+/* #hero .container {
     text-align: center;
-}
+} */
 
 #hero h2 {
     color: #fff;
@@ -1499,7 +1742,7 @@ section {
 .services .icon-box .image {
     position: absolute;
     background-position: center;
-    background-size: cover;
+    background-size: contain;
     background-repeat: no-repeat;
     height: 100%;
     width: 100%;

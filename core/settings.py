@@ -31,11 +31,8 @@ INSTALLED_APPS = [
     'django_celery_results',
     'django_celery_beat',
     'user.apps.UserConfig',
-    'gm2m',
-    'genericm2m',
-    'multiselectfield',
     'shop',
-    'job'
+    'notification',
 ]
 INSTALLED_APPS += AUTH_INSTALLED_APPS
 '''
@@ -45,21 +42,21 @@ send messages and where to record the results. Because you’re using
 Redis as both your message broker and your database back end, both 
 URLs point to the same address.
 '''
-CELERY_BEAT_SCHEDULE = {
-    # for scheduling specific tasks. check contrab.guru
-    "ScheduledEmails": {
-        'task': 'shop.tasks.send_scheduled_emails',
-        'schedule': 10,  # crontab(hour=10, day_of_week=2),
-        'args': ()
-    }
-}
+# CELERY_BEAT_SCHEDULE = {
+#     # for scheduling specific tasks. check contrab.guru
+#     "ScheduledEmails": {
+#         'task': 'shop.tasks.shop_task_one',
+#         'schedule': 10,  # crontab(hour=10, day_of_week=2),
+#         'args': ()
+#     }
+# }
 CELERY_BROKER_URL = "redis://127.0.0.1:6379"
-# CELERY_RESULT_BACKEND = "redis://127.0.0.1:6379"
+CELERY_RESULT_BACKEND = "redis://127.0.0.1:6379"
 CELERY_ACCEPT_CONTENT = ['application/json', ]
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Africa/Nairobi'
-CELERY_RESULT_BACKEND = 'django-db'
+# CELERY_RESULT_BACKEND = 'django-db'
 CELERY_CACHE_BACKEND = 'django-cache'
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 MIDDLEWARE = [
@@ -93,19 +90,12 @@ else:
     }
 
 
-def debug_folder(x):
-    if DEBUG:
-        return x
-    return ""
-
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
             os.path.join(BASE_DIR, "web/templates"),
-            # For Django css & static
-            debug_folder(os.path.join(BASE_DIR, "web/shop"))
         ],
         'APP_DIRS': True,
         'OPTIONS': {

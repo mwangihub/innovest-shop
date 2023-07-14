@@ -3,26 +3,25 @@ Shop Application is a fork of django-react-ecommerce.\n
 Credits: https://github.com/justdjango/django-react-ecommerce\n
 Author: https://justdjango.com/author/matt\n
 """
-import datetime
 import logging
+import uuid
 from datetime import timedelta
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.contenttypes import fields
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import UniqueConstraint, Count
+from django.db.models import Count
 from django.shortcuts import reverse
 from django.utils.text import slugify
-from django.utils.translation import gettext_lazy as _
 from django_countries.fields import CountryField
-from multiselectfield import MultiSelectField
 from phonenumber_field.modelfields import PhoneNumberField
 
-from .managers import (NotificationManager, AddressManager, ShippingLocationChargesManger)
+from .managers import (AddressManager, ShippingChargeManager, OrderManager)
 
+User = get_user_model()
 logger = logging.getLogger(__name__)
 
 RELATED_DB_TYPES = (("NE", 'None'), ("SN", 'Size by number'), ("SM", 'Size by mode'), ("CD", 'Coloured'), ("OR", 'Original'), ("RF", 'Refurbished'), ("BR", 'Branded'),)
@@ -69,17 +68,6 @@ class Town(models.Model):
         return self.name
 
 
-class ShippingLocationCharges(models.Model):
-    town = models.ForeignKey("shop.Town", on_delete=models.CASCADE, blank=True, null=True)
-    location = models.CharField(max_length=55, blank=True, null=True)
-    charge_per_kg = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-
-    objects = ShippingLocationChargesManger()
-
-    def __str__(self):
-        return self.location
-
-
 class GenericForeignKeyModel(models.Model):
     db_type = models.CharField(choices=RELATED_DB_TYPES, default='NE', max_length=2)
     description = models.CharField(max_length=255, blank=True, null=True)
@@ -87,78 +75,6 @@ class GenericForeignKeyModel(models.Model):
 
     def __str__(self):
         return f'{self.content_type}'
-
-
-class Notification(models.Model):
-    """Notification to a user within Auth"""
-
-    NOTIFICATIONS_MAX_PER_USER_DEFAULT = 50
-    NOTIFICATIONS_REFRESH_TIME_DEFAULT = 30
-
-    class Level(models.TextChoices):
-        """A notification level."""
-
-        DANGER = 'danger', _('danger')  #:
-        WARNING = 'warning', _('warning')  #:
-        INFO = 'info', _('info')  #:
-        SUCCESS = 'success', _('success')  #:
-
-        @classmethod
-        def from_old_name(cls, name: str) -> object:
-            """Map old name to enum. Raises ValueError for invalid names."""
-            name_map = {
-                "CRITICAL": cls.DANGER,
-                "ERROR": cls.DANGER,
-                "WARN": cls.WARNING,
-                "INFO": cls.INFO,
-                "DEBUG": cls.SUCCESS,
-            }
-            try:
-                return name_map[name]
-            except KeyError:
-                raise ValueError(f"Unknown name: {name}") from None
-
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, )
-    session_id = models.CharField(max_length=55, blank=True, null=True, )
-    level = models.CharField(choices=Level.choices, max_length=10, default=Level.INFO)
-    icon = models.CharField(max_length=55, blank=True, null=True, default='bell-fill')
-    title = models.CharField(max_length=254)
-    message = models.TextField()
-    is_general = models.BooleanField(default=False, db_index=True)
-    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
-    viewed = models.BooleanField(default=False, db_index=True)
-
-    objects = NotificationManager()
-
-    def __str__(self) -> str:
-        if self.user:
-            return f"{self.user} - {self.title}"
-        return f"General: {self.title}"
-
-    def save(self, *args, **kwargs):
-        # overriden save to ensure cache is invalidated on very call
-        if self.user:
-            Notification.objects.invalidate_user_notification_cache(self.user.pk)
-        super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        # overriden delete to ensure cache is invalidated on very call
-        if self.user:
-            Notification.objects.invalidate_user_notification_cache(self.user.pk)
-        super().delete(*args, **kwargs)
-
-    def mark_viewed(self) -> None:
-        """Mark notification as viewed."""
-        self.viewed = True
-        self.save()
-
-    def set_level(self, level_name: str) -> None:
-        """
-        Set notification level according to old level name, e.g. 'CRITICAL'.
-        Raises ValueError on invalid level names.
-        """
-        self.level = self.Level.from_old_name(level_name)
-        self.save()
 
 
 class ItemManufacturer(models.Model):
@@ -334,7 +250,7 @@ class Item(models.Model):
     """
     Model that stores information about an Item
     """
-    title = models.CharField(max_length=100)
+    title = models.CharField(max_length=255)
     price = models.FloatField()
     pay_with_installment = models.BooleanField(default=False)
     discounted_price = models.FloatField(blank=True, null=True, default=0.0)
@@ -355,7 +271,7 @@ class Item(models.Model):
 
     rating_count = models.ManyToManyField("shop.ItemReview", related_name="item_reviews", blank=True)
     related_db = models.ManyToManyField(GenericForeignKeyModel, blank=True)
-    slug = models.SlugField(blank=True, null=True)
+    slug = models.SlugField(blank=True, null=True, max_length=255)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, blank=True, null=True)
 
     def __str__(self):
@@ -377,8 +293,16 @@ class Item(models.Model):
                     pass
         except Exception as e:
             pass
-        self.slug = slugify(f"{self.title} ID:{self.id}")
+        self.slug = slugify(f"{self.title}")
         super(Item, self).save(*args, **kwargs)
+
+    def get_lines_list(self):
+        return self.description.split('\n')
+
+    def set_lines_list(self, lines):
+        self.description = '\n'.join(lines)
+
+    description_list = property(get_lines_list, set_lines_list)
 
     @property
     def category_name(self):
@@ -408,6 +332,37 @@ class Item(models.Model):
 
     def get_add_qty_url(self):
         return reverse("add-items-to-cart", kwargs={"slug": self.slug})
+
+
+class ShippingCharge(models.Model):
+    """
+    Shipping charges varies with locations. Merchant might add an area he feels its under his jurisdiction
+    Because of unpredictable future events, this table should be separate in order to allow merchant
+    to be flexible.
+
+    NOTE:For this case, item can be blank for the purpose of InstallmentDetail, but it must be associated with a town/location
+    """
+    item = models.ForeignKey(Item, on_delete=models.SET_NULL, blank=True, null=True)
+    town = models.ForeignKey("shop.Town", on_delete=models.CASCADE)
+    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    for_item = models.BooleanField(default=False)
+    objects=ShippingChargeManager()
+    def __str__(self):
+        """
+        Shortened title and area code
+        """
+        default = f'{self.town.name}-{self.shipping_cost}'
+        if not self.item:
+            return default
+        title = self.item.title.split()
+        short_title = " ".join(title[:3])
+        return f'{short_title}-{default}'
+
+    def save(self, *args, **kwargs):
+        """Shipping charge for Item must be present to allow functionality to be run"""
+        if (self.item and not self.for_item) and (not self.item and self.for_item):
+            raise ValidationError(f'Adding "item" must also set "for_item" to True and vice versa')
+        super().save(*args, **kwargs)
 
 
 class CartItem(models.Model):
@@ -453,33 +408,35 @@ class Order(models.Model):
     - item attribute - is the CartItem (Item in the cart)
     - other attributes (user ref_code start_date ordered_date ordered shipping_address billing_address)\n
     \t are related to this order model.
-    TODO: Shipping Charges should be based on KGS or Location Area. What about item being processed?
+    TODO:Shipping Charges should be based on KGS or Location Area. What about item being processed?
     """
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     ref_code = models.CharField(max_length=20, blank=False, null=False)
     items = models.ManyToManyField(CartItem, related_name="cart_items")
+    shipping_address = models.ForeignKey("Address", related_name="shipping_address", on_delete=models.SET_NULL, blank=True, null=True, )
+    billing_address = models.ForeignKey("Address", related_name="billing_address", on_delete=models.SET_NULL, blank=True, null=True, )
+    payment = models.ForeignKey("Payment", on_delete=models.SET_NULL, related_name="orders", blank=True, null=True)
+    coupon = models.ForeignKey("Coupon", on_delete=models.SET_NULL, blank=True, null=True)
+    shipping_charges = models.ForeignKey("shop.ShippingCharge", on_delete=models.SET_NULL, blank=True, null=True)
+    installment_item = models.ForeignKey("shop.ItemInstallmentDetail", on_delete=models.SET_NULL, blank=True, null=True)
+    # payment = models.ForeignKey("Payment", on_delete=models.SET_NULL, related_name="orders", blank=True, null=True)
     start_date = models.DateTimeField(auto_now_add=True)
     ordered_date = models.DateTimeField(auto_now=True)
     pay_date = models.DateTimeField(auto_now_add=True)
     ordered = models.BooleanField(default=False)
-    shipping_address = models.ForeignKey("Address", related_name="shipping_address", on_delete=models.SET_NULL, blank=True, null=True, )
-    billing_address = models.ForeignKey("Address", related_name="billing_address", on_delete=models.SET_NULL, blank=True, null=True, )
-    payment = models.ForeignKey("Payment", on_delete=models.SET_NULL, blank=True, null=True)
-    coupon = models.ForeignKey("Coupon", on_delete=models.SET_NULL, blank=True, null=True)
-    shipping_charges = models.ForeignKey("shop.ShippingLocationCharges", on_delete=models.SET_NULL, blank=True, null=True)
     being_delivered = models.BooleanField(default=False)
     received = models.BooleanField(default=False)
     refund_requested = models.BooleanField(default=False)
     refund_granted = models.BooleanField(default=False)
 
-    # objects = OrderManager()
+    objects = OrderManager()
 
     class Meta:
         ordering = ["-ordered_date"]
 
     def __str__(self):
-        return self.user.email
+        return f'{self.id}'
 
     @property
     def get_total(self):
@@ -498,6 +455,17 @@ class Order(models.Model):
                 discount += order_item.get_amount_saved()
         return round(discount, 2)
 
+    @property
+    def get_first_ordered(self):
+        """We are assuming that the order is first placed"""
+        return (
+                self.ordered and not
+        self.being_delivered and not
+                self.received and not
+                self.refund_requested and not
+                self.refund_granted
+        )
+
 
 class Address(models.Model):
     """
@@ -506,7 +474,7 @@ class Address(models.Model):
     B = 'B'
     S = 'S'
     ADDRESS_CHOICES = [(B, 'Billing'), (S, 'Shipping'), ]
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="address", default=1)
     email = models.EmailField(max_length=100, verbose_name="Alternative email", blank=True, null=True, )
     first_name = models.CharField(max_length=100, verbose_name="First name", blank=True, null=True, )
     last_name = models.CharField(max_length=100, verbose_name="Second name", blank=True, null=True, )
@@ -520,25 +488,10 @@ class Address(models.Model):
     objects = AddressManager()
 
     def __str__(self):
-        return f"{self.user.email}"
+        return f"{self.user}"
 
     class Meta:
         verbose_name_plural = "Shipping addresses"
-
-
-class Payment(models.Model):
-    """
-    Payment Method used by the user and the amount.
-    PayPal, Mpesa e.t.c
-    """
-    stripe_charge_id = models.CharField(max_length=50)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True)
-    mpesa_no = PhoneNumberField(null=True, blank=True)
-    amount = models.FloatField()
-    timestamp = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return self.user.email
 
 
 class Coupon(models.Model):
@@ -581,44 +534,32 @@ class CustomerPurchaseProfile(models.Model):
     one_click_purchasing = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.user.email
+        return self.stripe_customer_id
 
 
-class ItemSample(models.Model):
-    image = models.ImageField()
-    name = models.CharField(max_length=50, blank=False)
-    description = models.TextField(blank=True, null=True)
-    date = models.DateField(auto_now_add=True)
-    created = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-pk"]
+class Payment(models.Model):
+    """
+    Payment Method used by the user and the amount. For this case we are using Mpesa payment gateway
+    We are storing the number used to make payment and the amount
+    TODO:Shipping field should be filled to avoid records having issues in an event shipping charge cost of
+            a location changes
+    """
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True)
+    mpesa_no = PhoneNumberField(null=True, blank=True)
+    amount = models.FloatField(verbose_name="goods_cost")
+    shipping = models.CharField(max_length=100, blank=True, null=True)
+    installment_item = models.CharField(max_length=255, blank=True, null=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    stripe_charge_id = models.CharField(max_length=255, null=True, blank=True, default=uuid.uuid4)
 
     def __str__(self):
-        return self.name
-
-
-class ShippingCharge(models.Model):
-    """
-    Because of unpredictable future events, this table should be separate in order to allow merchant
-    to be flexible
-    """
-    item = models.ForeignKey(Item, on_delete=models.CASCADE)
-    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2)
-    area_code = models.CharField(max_length=255, help_text="Ship to the nearest town")
-
-    def __str__(self):
-        """
-        Shortened title and area code
-        """
-        title = self.item.title.split()
-        short_title = " ".join(title[:3])
-        return f'{self.shipping_cost}-{short_title} - {self.area_code}'
+        return f"{self.user.email}"
 
 
 class ItemInstallmentDetail(models.Model):
     """
-    Stores Instalment details of the item
+    Stores Instalment details of the item. An Item can have different periods and deposit amounts
+    This impacts the total cost of the item
     """
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
     total_cost = models.DecimalField(max_digits=15, decimal_places=2)
@@ -636,8 +577,9 @@ class ItemInstallmentDetail(models.Model):
         return f"{self.item.title}"
 
     def save(self, *args, **kwargs):
+        """Shipping charge for Item must be present to allow functionality to be run"""
         if self.item:
-            charges_qs = ShippingCharge.objects.filter(item=self.item)
+            charges_qs = ShippingCharge.objects.get_for_item(self.item)
             if not charges_qs.exists():
                 raise ValidationError(f'First add shipping charges for {self.item.title}')
         super().save(*args, **kwargs)
@@ -647,40 +589,13 @@ class ItemInstallmentDetail(models.Model):
         return (self.total_cost - self.deposit_amount) / self.payment_period
 
 
-# # Just incase we need to manipulate amount_paid e.g. to manipulate months/period or paid_for_period
-# amount_paid = 0
-# shipping = 0
-# # if self.selected_shipping_charges:
-# #     shipping = self.selected_shipping_charges.shipping_cost
-# if self.amount_paid:
-#     amount_paid = self.amount_paid
-# # Instead of subtracting deposit (self.installment_item.deposit_amount) alone, Lets minus the amount paid.
-# # We need to watch if the amount is always valid
-# self.remaining_balance = self.installment_item.total_cost - amount_paid
-# # ----------- Manipulate next amount base on required_period --------
-# # This is based of if the % paid is greater, but that depends on policies
-# self.next_amount_to_pay = self.remaining_balance / self.installment_item.payment_period
-# # -------------------------------------------------------------------
-# if self.payment_period_start_date and not self.payment_due_date:
-#     self.payment_due_date = self.payment_period_start_date + timedelta(days=30)
-#
-# elif self.payment_period_start_date and self.payment_due_date:
-#     # Check if next_date date minus start date divided by 30 is not
-#     # greater than self.installment_item.payment_period
-#     next_date = self.payment_due_date + timedelta(days=30)
-#     # print(((next_date - self.payment_period_start_date) / timedelta(days=30)))
-#     if ((next_date - self.payment_period_start_date) / timedelta(days=30)) < self.installment_item.payment_period:
-#         self.payment_due_date = next_date
-# print("kwargs, args: ", kwargs, args)
 class UserInstallmentPayDetail(models.Model):
     """
-    Stores information of user and Item being paid to track all installments.
-    TODO: 1. This record should be copied to Order when purchase is completed and delete
-        the one in this model to reduce redundancy.
-        2. Add another mode to track payment history. Each time user makes payment, create
-         a new instance and add it to a ForeignKey field
+    Stores information of user and Item being paid to track all installments. For this case,
+    we are using MPESA Payment gateway through phone number. required_period,selected_shipping_charges
+    depends on installment_item selected by user
     """
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     selected_address = models.ForeignKey("shop.Address", on_delete=models.SET_NULL, blank=True, null=True)
     installment_item = models.ForeignKey("shop.ItemInstallmentDetail", on_delete=models.CASCADE)
     selected_shipping_charges = models.ForeignKey("shop.ShippingCharge", on_delete=models.SET_NULL, blank=True, null=True)
@@ -696,7 +611,8 @@ class UserInstallmentPayDetail(models.Model):
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, blank=True, null=True)
     # default=datetime.datetime.now
     created_at = models.DateTimeField(auto_now_add=True)
-
+    class Meta:
+        ordering = ['-id']
     def __str__(self):
         return f'{self.user} '
 
@@ -748,35 +664,8 @@ class UserInstallmentPayDetail(models.Model):
     def next_payment_amount(self):
         return self.installment_item.next_amount()
 
-
     @property
     def actual_total(self):
         if self.selected_shipping_charges:
             return self.installment_item.total_cost + self.selected_shipping_charges.shipping_cost
         return self.installment_item.total_cost
-
-# from django.shortcuts import render, redirect, get_object_or_404
-# from .forms import PaymentForm
-# from .models import PayWithInstallment, Item
-#
-# def make_payment(request, item_id):
-#     item = get_object_or_404(Item, pk=item_id)
-#     user = request.user
-#     try:
-#         payment = PayWithInstallment.objects.get(user=user, item=item)
-#     except PayWithInstallment.DoesNotExist:
-#         payment = PayWithInstallment(user=user, item=item)
-#
-#     if request.method == 'POST':
-#         form = PaymentForm(request.POST)
-#         if form.is_valid():
-#             payment.payment_period_start_date = form.cleaned_data['payment_period_start_date']
-#             payment.payment_due_date = form.cleaned_data['payment_due_date']
-#             payment.total_cost = form.cleaned_data['total_cost']
-#             payment.amount_paid = form.cleaned_data['amount_paid']
-#             payment.save()
-#             return redirect('payment_success')
-#     else:
-#         form = PaymentForm()
-#
-#     return render(request, 'payments/make_payment.html', {'form': form, 'item': item})

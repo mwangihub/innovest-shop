@@ -2,12 +2,13 @@
 {% load static %}
 {% block title %} Mt. Kenya Innovest shop project {% endblock title %}
 {% block headJS %}
-    <script defer="defer" src="{% static 'vendor/js/shop/main.4b4b5379.js' %}"></script>
+    <script defer="defer" src="{% static 'js/main.f1c32d82.js' %}"></script>
 {% endblock headJS %}
 
 {% block stylesheet %}{% endblock stylesheet %}
 
 {% block body %}
+    {% csrf_token %}
     <div id="root"></div>
     <Script>
         function setAttributes(element, attributes) {

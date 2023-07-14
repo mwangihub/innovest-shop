@@ -12,20 +12,18 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+from phonenumber_field.serializerfields import PhoneNumberField
+from phonenumber_field.validators import validate_international_phonenumber
+from rest_framework import serializers
 from rest_framework import status, permissions, generics
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api_auth.registration.serializers import RegisterSerializer
-from core.methods import _user
+from core.methods import _user, create_unique_code
 from shop.models import *
 from . import serializers as s
-
-from rest_framework import serializers
-from phonenumber_field.serializerfields import PhoneNumberField
-from phonenumber_field.validators import validate_international_phonenumber
-from django.forms.models import model_to_dict
 
 
 class PhoneSerializer(serializers.Serializer):
@@ -44,10 +42,6 @@ def validate_phone_number(phone_number):
 channel_layer = get_channel_layer()
 
 User = get_user_model()
-
-
-def create_ref_code():
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=20))
 
 
 def is_valid_form(values):
@@ -104,7 +98,7 @@ class TrendingItemsListAPIView(APIView):
 class AutoCreateProducts(APIView):
     permission_classes = [permissions.AllowAny, ]
 
-    def post(self, request, Format=None, *args, **kwargs) -> HttpResponse:
+    def post(self, request, *args, **kwargs) -> HttpResponse:
         queryset = Item.objects.all()
         import random
         if not (queryset.count() > 19):
@@ -165,6 +159,8 @@ class ItemsAPIView(APIView):
 
 # REQUIRE AUTHENTICATION
 # @method_decorator(csrf_protect, name="dispatch")
+
+
 @method_decorator(csrf_exempt, name="dispatch")
 class AddToCartAPIView(APIView):
     """Adding to cart API"""
@@ -182,12 +178,10 @@ class AddToCartAPIView(APIView):
         user = _user(request)
         try:
             stock = int(quantity)
-        except ValueError:
-            stock = 1
-        except Exception as e:
+        except Exception:
             stock = 1
         if slug is None:
-            return Response({"details": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
 
         item = get_object_or_404(Item, slug=slug)
         item.stock -= stock
@@ -218,7 +212,7 @@ class AddToCartAPIView(APIView):
             }, status=status.HTTP_200_OK)
         else:
             ordered_date = timezone.now()
-            order = Order.objects.create(user=user, ordered_date=ordered_date, ref_code=create_ref_code())
+            order = Order.objects.create(user=user, ordered_date=ordered_date, ref_code=create_unique_code())
             order_item.quantity = stock
             order_item.save()
             order.items.add(order_item)
@@ -407,16 +401,14 @@ class OrderDetailView(APIView):
                             status=status.HTTP_200_OK)
         return Response({"order": None}, status=status.HTTP_200_OK)
 
-    def post(self, *args, **kwargs):
-        ref_code = self.request.data.get('ref_code', None)
-        if not ref_code:
-            return Response(None, status=status.HTTP_200_OK)
-        try:
-            order = Order.objects.get(ref_code=ref_code)
-        except ObjectDoesNotExist:
-            return Response(None, status=status.HTTP_200_OK)
-        return Response(self.serializer_class(order, many=False, context={'request': self.request}).data,
-                        status=status.HTTP_200_OK)
+    def post(self, request):
+        order_ref_code = request.data.get('ref_code')
+        if not order_ref_code:
+            return Response({'detail': 'Order reference code not provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        order = get_object_or_404(Order, ref_code=order_ref_code)
+        serialized_order = self.serializer_class(order, many=False, context={'request': request}).data
+        return Response(serialized_order, status=status.HTTP_200_OK)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -428,6 +420,11 @@ class CompletedOrderView(generics.ListAPIView):
         user = _user(self.request)
         order = Order.objects.filter(user=user, ordered=True)
         return order
+
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.serializer_class(queryset, many=True, context={'request': request})
+        return Response(serializer.data)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -620,12 +617,14 @@ class MpesaPay(APIView):
         print(request.data)
         pay_id = request.data.get("pay_id")
         amount = request.data.get("amount")
-        shipping_charge = request.data.get("shipping_charge")
+        shipping_charge = request.data.get("shipping_charge", None)
+        shipping_location = None
+        amount_shipping = 0
         user = _user(request)
         try:
-            shipping_charges = ShippingLocationCharges.objects.get(id=shipping_charge)
-        except ShippingLocationCharges.DoesNotExist:
-            return Response({'detail': "Wrong shipping charge received."}, status=status.HTTP_400_BAD_REQUEST)
+            shipping_charges = ShippingCharge.objects.get(id=shipping_charge)
+        except ShippingCharge.DoesNotExist:
+            shipping_charges = shipping_charge
         mpesa_no = validate_phone_number(request.data["mpesa_number"])
         if not mpesa_no:
             return Response({'detail': "Enter a valid phone number format."}, status=status.HTTP_400_BAD_REQUEST)
@@ -636,8 +635,10 @@ class MpesaPay(APIView):
         total = order.get_total
         if amount < total:
             return Response({'detail': "Amount discrepancy. Payment failed"}, status=status.HTTP_400_BAD_REQUEST)
-        amount_shipping = shipping_charges.charge_per_kg
-        order.shipping_charges = shipping_charges
+        if shipping_charges:
+            amount_shipping = shipping_charges.shipping_cost
+            shipping_location = shipping_charges.town.name
+            order.shipping_charges = shipping_charges
         order_items = order.items.all()
         order_items.update(ordered=True)
         for item in order_items:
@@ -653,7 +654,8 @@ class MpesaPay(APIView):
             user=user,
             stripe_charge_id=pay_id,
             amount=amount + amount_shipping,
-            mpesa_no=mpesa_no
+            mpesa_no=mpesa_no,
+            shipping=f"{shipping_location} - {amount_shipping}"
         )
         order.payment = payment
         order.ordered = True
@@ -759,39 +761,7 @@ class PurchaseInstallMentProfileAPIView(APIView):
             return Response(data, status=status.HTTP_200_OK)
         return Response({'details': "Failed to update purchase profile"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # def put(self, request, format=None, *args, **kwargs):
-    #     profile_id = request.data.get('profile_id', None)
-    #     profile = get_object_or_404(UserInstallmentPayDetail, pk=profile_id)
-    #     data = request.data
-    #     if data.get('selected_shipping_charges', None) is not None:
-    #         profile.selected_shipping_charges = ShippingCharge.objects.get(id=data['id'])
-    #         profile.save()
-    #         data = s.UserInstallmentPayDetailSerializer(instance=profile, many=False, context={'request': self.request}).data
-    #     if data.get('address', None) is not None and data.get('create_address', None) is None:
-    #         profile.selected_address = Address.objects.get(id=data['id'])
-    #         profile.save()
-    #         data = s.UserInstallmentPayDetailSerializer(instance=profile, many=False, context={'request': self.request}).data
-    #     if data.get('mpesa', None) is not None:
-    #         profile.mpesa_no = data['mpesa_no']
-    #         profile.save()
-    #         data = s.UserInstallmentPayDetailSerializer(instance=profile, many=False, context={'request': self.request}).data
-    #     if data.get('create_address', None) is not None:
-    #         del data['create_address']
-    #         del data['profile_id']
-    #         addr = Address.objects.create(**data)
-    #         profile.selected_address = addr
-    #         profile.save()
-    #         data = s.UserInstallmentPayDetailSerializer(instance=profile, many=False, context={'request': self.request}).data
-    #     return Response(data, status=status.HTTP_200_OK)
 
-
-# from datetime import timedelta
-# from rest_framework import status
-from rest_framework.generics import CreateAPIView
-
-
-# from rest_framework.response import Response
-# from myapp.models import ItemInstallmentDetail, UserInstallmentPayDetail
 @method_decorator(csrf_exempt, name="dispatch")
 class CompleteInstallmentPayAPIView(APIView):
     permission_classes = [permissions.AllowAny, ]
@@ -863,12 +833,12 @@ class CompleteInstallmentPayAPIVie(APIView):
         data = self.request.data
         shipping = data.get("selected_shipping_charges", None)
         next_pay = data.get("next_payment_amount", None)
-
+        previous_amount = 0
         # Getting the current UserInstallmentPayDetail using id
-        purchase_profile = get_object_or_404(UserInstallmentPayDetail, id=data.get('id', None))
+        purchase_profile = get_object_or_404(UserInstallmentPayDetail, id=data.get('id', None), completed=False)
         if purchase_profile.completed:
             return self.payment_completed()
-        # TODO:Make payment through MPESA API an return the amount paid
+        # TODO:Make payment through MPESA API Gateway an return the amount paid
         # The amount (mpesa_pay_amount) should be received from MPESA API Endpoint
         mpesa_pay_amount = data.get('mpesa_pay_amount')
 
@@ -907,15 +877,15 @@ class CompleteInstallmentPayAPIVie(APIView):
             'detail': "Payment Received. We will email you the details of your order. Alternatively, you can view your profile"
         }, status=status.HTTP_200_OK)
 
-        def less_amount_paid(self, amount, deposit):
-            return Response({
-                'detail': f'The amount received ({amount}) is less than the REQUIRED deposit ({deposit})'
-            }, status=status.HTTP_400_BAD_REQUEST)
+    def less_amount_paid(self, amount, deposit):
+        return Response({
+            'detail': f'The amount received ({amount}) is less than the REQUIRED deposit ({deposit})'
+        }, status=status.HTTP_400_BAD_REQUEST)
 
-        def payment_completed(self):
-            return Response({
-                'detail': "This order payment was completed."
-            }, status=status.HTTP_200_OK)
+    def payment_completed(self):
+        return Response({
+            'detail': "This order payment was completed."
+        }, status=status.HTTP_200_OK)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -973,32 +943,6 @@ class GetUserInstallmentDetails(APIView):
         user = _user(self.request)
         user_installments = UserInstallmentPayDetail.objects.filter(user=user)
         serializer = self.serializer_class(user_installments, many=True, context={"request": self.request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class GetMessagesAPIView(APIView):
-    permission_classes = [permissions.AllowAny, ]
-
-    def get(self, format=None, *args, **kwargs):
-        user = _user(self.request)
-        if not user:
-            user = None
-        queryset = Notification.objects.for_user_or_general(user)
-        serializer = s.NotificationSerializer(queryset, many=True, context={'request': self.request})
-
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def post(self, format=None, *args, **kwargs):
-        user = _user(self.request)
-        if not user.is_authenticated:
-            return Response({"detail": "Unauthenticated user is not Allowed!"}, status=status.HTTP_200_OK)
-        queryset = Notification.objects.filter(user=user)
-        if queryset.exists():
-            for notification in queryset:
-                notification.mark_viewed()
-        queryset = Notification.objects.for_user_or_general(user)
-        serializer = s.NotificationSerializer(queryset, many=True, context={'request': self.request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

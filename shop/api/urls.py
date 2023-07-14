@@ -7,6 +7,8 @@ views_patterns = [
         path("create/", UserInstallmentPayDetailCreateAPIView.as_view(), name="installment_detail_create"),
         path("patch/", UserInstallmentPayDetailCreateAPIView.as_view(), name="installment_detail_patch"),
     ])),
+    path("billings/", PaymentAPIView.as_view(), name="billings"),
+    path("billings-detail/", PaymentAPIView.as_view(), name="billings_detail"),
 ]
 main_patterns = [
     path("auto-items/", views.AutoCreateProducts.as_view(), name="auto-items"),
@@ -43,7 +45,6 @@ main_patterns = [
     path("purchase-installment-profile/", views.PurchaseInstallMentProfileAPIView.as_view(), name="purchase_installment_profile", ),
     path("complete-installment-payment/", views.CompleteInstallmentPayAPIView.as_view(), name="complete_installment_payment", ),
     path("create-item-review/", views.CreateItemReviewAPIView.as_view(), name="create-item-review", ),
-    path("get-messages/", views.GetMessagesAPIView.as_view(), name="get_messages", ),
 ]
 
-urlpatterns = (main_patterns + views_patterns)
+urlpatterns = main_patterns + views_patterns

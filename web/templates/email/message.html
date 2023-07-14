@@ -1,0 +1,62 @@
+<div style="font-size: 16px;padding: 30px;line-height: 2.0;display: flex;justify-content: center;color: black !important;">
+    <div style="padding:30px;background:aliceblue;Margin:0 auto;max-width:900px;min-width:auto;word-wrap:break-word;word-break:break-word;width:100vw;box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;">
+        <p style="font-size: 1.2rem;">{{ message }}.</p>
+        <div>
+            <div style="position: relative;display: flex;flex-direction: column;min-width: 0;word-wrap: break-word;background-color: #fff;background-clip: border-box;border: 1px solid rgba(0,0,0,.125);border-radius: .25rem;
+    ">
+                <div style="flex: 1 1 auto;padding: 1rem 1rem;">
+                    <div style="display:flex;justify-content: space-between !important;">
+                        <b style="opacity: 0.8;color:#6c757d;margin-right: 0.5rem;">Order ref.</b>
+                        <span>{{ object.ref_code }}</span>
+                    </div>
+                    <div style="display:flex;justify-content: space-between !important;">
+                        {% if object.ordered and not object.being_delivered and not object.received and not object.refund_requested and not object.refund_granted %}
+                            <b style="opacity: 0.8;color:#6c757d;margin-right: 0.5rem;">Order status</b>
+                            <span>Being processed</span>
+                        {% endif %}
+                        {% if object.ordered and object.being_delivered and not object.received and not object.refund_requested and not object.refund_granted %}
+                            <b style="opacity: 0.8;color:#6c757d;margin-right: 0.5rem;">Order status</b>
+                            <span>Order dispatched</span>
+                        {% endif %}
+                        {% if object.ordered and object.being_delivered and object.received and not object.refund_requested and not object.refund_granted %}
+                            <b style="opacity: 0.8;color:#6c757d;margin-right: 0.5rem;">Order status</b>
+                            <span>Order received</span>
+                        {% endif %}
+                        {% if object.ordered and object.being_delivered and not object.received and object.refund_requested and not object.refund_granted %}
+                            <b style="opacity: 0.8;color:#6c757d;margin-right: 0.5rem;">Order status</b>
+                            <span>Refund requested</span>
+                        {% endif %}
+                        {% if object.ordered and object.being_delivered and not object.received and object.refund_requested and object.refund_granted %}
+                            <b style="opacity: 0.8;color:#6c757d;margin-right: 0.5rem;">Order status</b>
+                            <span>Refund granted</span>
+                        {% endif %}
+                    </div>
+                    <div style="display:flex;justify-content: space-between !important;">
+                        <b style="opacity: 0.8;color:#6c757d;margin-right: 0.5rem;">Order items: </b>
+                    </div>
+                    <div style="padding: 1rem 1rem;">
+                        {% for item in object.items %}
+                            <div>
+                                <span style="font-size: small;margin-right: 1rem;">{{ forloop.counter }}.</span>
+                                <span style="font-size: small;margin-right: 0.5rem;">{{ item.title }}</span>
+                                <span style="font-size: small;margin-right: 0.5rem;color:#6c757d;">
+
+                                        {% if item.discounted_price %}
+                                            <s>@{{ item.price }} Kshs</s>
+                                            <span style="margin-left: 0.5rem;color:#6c757d;">
+                                                Discounted to: {{ item.discounted_price }} Kshs
+                                            </span>
+                                        {% else %}
+                                            @{{ item.price }} Kshs
+                                        {% endif %}
+                                    </span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <p style="background: #00abff;padding: 0 15px;border: none;border-radius: 4px;cursor: pointer;width: max-content;">
+            <a href="{{ request.get_host }}" style="color: white !important;text-decoration: none;"> Click for more information</a></p>
+    </div>
+</div>

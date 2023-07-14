@@ -168,7 +168,7 @@ class EmployeeProfile(models.Model):
 
 
 def images_buyer_profile_path(instance, filename):
-    return f'buyer-profile/{instance.user.email}/{filename}'
+    return f'buyer-profile/userID_{instance.user.id}/{filename}'
 
 
 class BuyerProfile(models.Model):
